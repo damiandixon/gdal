@@ -32,7 +32,7 @@
 
 CPL_CVSID("$Id$");
 
-#define MAX_LINK        5000
+static const int MAX_LINK = 5000;
 
 /************************************************************************/
 /* ==================================================================== */
@@ -333,7 +333,7 @@ static void AddGenericAttributes( NTFFileReader * poReader,
                                        &pszAttLongName, &pszAttValue,
                                        &pszCodeDesc );
 
-            if( poFeature->IsFieldSet( iListField ) )
+            if( poFeature->IsFieldSetAndNotNull( iListField ) )
             {
                 poFeature->SetField( iListField,
                     CPLSPrintf( "%s,%s",
@@ -394,14 +394,16 @@ static OGRFeature *TranslateGenericNode( NTFFileReader *poReader,
         panLinks[iLink] = atoi(papoGroup[0]->GetField(20+iLink*12,
                                                       25+iLink*12));
 
-    poFeature->SetField( "GEOM_ID_OF_LINK", nLinkCount, panLinks );
+    if( panLinks != NULL )
+        poFeature->SetField( "GEOM_ID_OF_LINK", nLinkCount, panLinks );
 
     // DIR
     for( int iLink = 0; iLink < nLinkCount; iLink++ )
         panLinks[iLink] = atoi(papoGroup[0]->GetField(19+iLink*12,
                                                       19+iLink*12));
 
-    poFeature->SetField( "DIR", nLinkCount, panLinks );
+    if( panLinks != NULL )
+        poFeature->SetField( "DIR", nLinkCount, panLinks );
 
     // should we add LEVEL and/or ORIENT?
 
@@ -445,14 +447,16 @@ static OGRFeature *TranslateGenericCollection( NTFFileReader *poReader,
         panParts[iPart] = atoi(papoGroup[0]->GetField(13+iPart*8,
                                                       14+iPart*8));
 
-    poFeature->SetField( "TYPE", nPartCount, panParts );
+    if( panParts != NULL )
+        poFeature->SetField( "TYPE", nPartCount, panParts );
 
     // ID
     for( int iPart = 0; iPart < nPartCount; iPart++ )
         panParts[iPart] = atoi(papoGroup[0]->GetField(15+iPart*8,
                                                       20+iPart*8));
 
-    poFeature->SetField( "ID", nPartCount, panParts );
+    if( panParts != NULL )
+        poFeature->SetField( "ID", nPartCount, panParts );
 
     CPLFree( panParts );
 
@@ -814,11 +818,11 @@ static OGRFeature *TranslateGenericCPoly( NTFFileReader *poReader,
 /*      boundaries are.  The boundary information will be emitted      */
 /*      in the RingStart field.                                         */
 /* -------------------------------------------------------------------- */
-    int         nNumLink = 0, iLink;
+    int         nNumLink = 0;
     int         anPolyId[MAX_LINK*2];
 
     nNumLink = atoi(papoGroup[0]->GetField(9,12));
-    for( iLink = 0; iLink < nNumLink; iLink++ )
+    for( int iLink = 0; iLink < nNumLink; iLink++ )
     {
         anPolyId[iLink] = atoi(papoGroup[0]->GetField(13 + iLink*7,
                                                       18 + iLink*7));

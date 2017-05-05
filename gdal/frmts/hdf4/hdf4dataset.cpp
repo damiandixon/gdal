@@ -298,7 +298,6 @@ int HDF4Dataset::GetDataTypeSize( int32 iNumType )
 
 double HDF4Dataset::AnyTypeToDouble( int32 iNumType, void *pData )
 {
-    CPL_STATIC_ASSERT(sizeof(GIntBig) == 8);
     switch ( iNumType )
     {
         case DFNT_INT8:
@@ -313,10 +312,12 @@ double HDF4Dataset::AnyTypeToDouble( int32 iNumType, void *pData )
             return static_cast<double>(*reinterpret_cast<GInt32 *>(pData));
         case DFNT_UINT32:
             return static_cast<double>(*reinterpret_cast<GUInt32 *>(pData));
+#ifdef CPL_HAS_GINT64
         case DFNT_INT64:
-            return static_cast<double>(*reinterpret_cast<GIntBig *>(pData));
+            return static_cast<double>(*reinterpret_cast<GInt64 *>(pData));
         case DFNT_UINT64:
-            return static_cast<double>(*reinterpret_cast<GIntBig *>(pData));
+            return static_cast<double>(*reinterpret_cast<GUInt64 *>(pData));
+#endif
         case DFNT_FLOAT32:
             return static_cast<double>(*reinterpret_cast<float *>(pData));
         case DFNT_FLOAT64:
@@ -1230,7 +1231,8 @@ GDALDataset *HDF4Dataset::Open( GDALOpenInfo * poOpenInfo )
 
     Hclose( hHDF4 );
 
-    poDS->nRasterXSize = poDS->nRasterYSize = 512; // XXX: bogus values
+    poDS->nRasterXSize = 512; // XXX: bogus value
+    poDS->nRasterYSize = 512; // XXX: bogus value
 
     // Make sure we don't try to do any pam stuff with this dataset.
     poDS->nPamFlags |= GPF_NOSAVE;
@@ -1278,7 +1280,6 @@ GDALDataset *HDF4Dataset::Open( GDALOpenInfo * poOpenInfo )
                       "existing datasets." );
             return NULL;
         }
-
     }
 
     return poDS;

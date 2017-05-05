@@ -29,93 +29,40 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
- **********************************************************************
- *
- * $Log: mitab_tabfile.cpp,v $
- * Revision 1.78  2010-10-08 18:40:12  aboudreault
- * Fixed missing initializations that cause crashes
- *
- * Revision 1.77  2010-10-08 18:38:13  aboudreault
- * Added attribute index support for the sql queries in mapinfo tab format
- * (GDAL bug #3687)
- *
- * Revision 1.76  2010-07-07 19:00:15  aboudreault
- * Cleanup Win32 Compile Warnings (GDAL bug #2930)
- *
- * Revision 1.75  2010-07-05 14:58:33  aboudreault
- * Fixed bad feature count after we deleted a feature in MapInfo (bug 2227)
- *
- * Revision 1.74  2010-01-07 20:39:12  aboudreault
- * Added support to handle duplicate field names, Added validation to check
- * if a field name start with a number (bug 2141)
- *
- * Revision 1.73  2008-11-27 20:50:23  aboudreault
- * Improved support for OGR date/time types. New Read/Write methods (bug 1948)
- * Added support of OGR date/time types for MIF features.
- *
- * Revision 1.72  2008/11/17 22:06:21  aboudreault
- * Added support to use OFTDateTime/OFTDate/OFTTime type when compiled with
- * OGR and fixed reading/writing support for these types.
- *
- * Revision 1.71  2008/09/26 14:40:24  aboudreault
- * Fixed bug: MITAB doesn't support writing DateTime type (bug 1948)
- *
- * Revision 1.70  2008/06/13 18:39:21  aboudreault
- * Fixed problem with corrupt pointer if file not found (bug 1899) and
- * fixed tabdump build problem if DEBUG option not provided (bug 1898)
- *
- * Revision 1.69  2008/03/05 20:59:10  dmorissette
- * Purged CVS logs in header
- *
- * Revision 1.68  2008/03/05 20:35:39  dmorissette
- * Replace MITAB 1.x SetFeature() with a CreateFeature() for V2.x (bug 1859)
- *
- * Revision 1.67  2008/01/29 21:56:39  dmorissette
- * Update dataset version properly for Date/Time/DateTime field types (#1754)
- *
- * Revision 1.66  2008/01/29 20:46:32  dmorissette
- * Added support for v9 Time and DateTime fields (byg 1754)
- *
- * Revision 1.65  2007/09/12 20:22:31  dmorissette
- * Added TABFeature::CreateFromMapInfoType()
- *
- * Revision 1.64  2007/06/21 14:00:23  dmorissette
- * Added missing cast in isspace() calls to avoid failed assertion on Windows
- * (MITAB bug 1737, GDAL ticket 1678))
- *
- * Revision 1.63  2007/06/12 13:52:38  dmorissette
- * Added IMapInfoFile::SetCharset() method (bug 1734)
- *
- * Revision 1.62  2007/06/12 12:50:40  dmorissette
- * Use Quick Spatial Index by default until bug 1732 is fixed (broken files
- * produced by current coord block splitting technique).
- *
- * Revision 1.61  2007/03/21 21:15:56  dmorissette
- * Added SetQuickSpatialIndexMode() which generates a non-optimal spatial
- * index but results in faster write time (bug 1669)
- *
- * ...
- *
- * Revision 1.1  1999/07/12 04:18:25  daniel
- * Initial checkin
- *
  **********************************************************************/
 
+#include "cpl_port.h"
 #include "mitab.h"
-#include "mitab_utils.h"
-#include "cpl_minixml.h"
-#include "ogr_p.h"
 
-#include <ctype.h>      /* isspace() */
+#include <cctype>
+#include <climits>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <algorithm>
+
+#include "cpl_conv.h"
+#include "cpl_error.h"
+#include "cpl_minixml.h"
+#include "cpl_string.h"
+#include "cpl_vsi.h"
+#include "mitab_priv.h"
+#include "mitab_utils.h"
+#include "ogr_core.h"
+#include "ogr_feature.h"
+#include "ogr_geometry.h"
+#include "ogr_p.h"
+#include "ogr_spatialref.h"
+#include "ogrsf_frmts.h"
 
 CPL_CVSID("$Id$");
 
-#define UNSUPPORTED_OP_READ_ONLY "%s : unsupported operation on a read-only datasource."
+static const char UNSUPPORTED_OP_READ_ONLY[] =
+  "%s : unsupported operation on a read-only datasource.";
 
 /*=====================================================================
  *                      class TABFile
  *====================================================================*/
-
 
 /**********************************************************************
  *                   TABFile::TABFile()
@@ -155,7 +102,6 @@ TABFile::~TABFile()
 {
     Close();
 }
-
 
 /************************************************************************/
 /*                         GetFeatureCount()                          */
@@ -296,7 +242,6 @@ int TABFile::Open(const char *pszFname, TABAccess eAccess,
 
     pszTmpFname = CPLStrdup(m_pszFname);
 
-
 #ifndef _WIN32
     /*-----------------------------------------------------------------
      * On Unix, make sure extension uses the right cases
@@ -372,7 +317,6 @@ int TABFile::Open(const char *pszFname, TABAccess eAccess,
         m_bNeedTABRewrite = TRUE;
     }
 
-
     /*-----------------------------------------------------------------
      * Open .DAT file (or .DBF)
      *----------------------------------------------------------------*/
@@ -410,7 +354,6 @@ int TABFile::Open(const char *pszFname, TABAccess eAccess,
 
     m_nLastFeatureId = m_poDATFile->GetNumRecords();
 
-
     /*-----------------------------------------------------------------
      * Parse .TAB file field defs and build FeatureDefn (only in read access)
      *----------------------------------------------------------------*/
@@ -424,7 +367,6 @@ int TABFile::Open(const char *pszFname, TABAccess eAccess,
 
         return -1;
     }
-
 
     /*-----------------------------------------------------------------
      * Open .MAP (and .ID) file
@@ -537,7 +479,6 @@ int TABFile::Open(const char *pszFname, TABAccess eAccess,
     return 0;
 }
 
-
 /**********************************************************************
  *                   TABFile::ParseTABFileFirstPass()
  *
@@ -587,7 +528,6 @@ int TABFile::ParseTABFileFirstPass(GBool bTestOpenNoError)
                 m_pszCharset = CPLStrdup("Neutral");
                 m_eTableType = TABTableNative;
             }
-
         }
         else if (EQUAL(papszTok[0], "!edit_version"))
         {
@@ -936,7 +876,6 @@ int TABFile::ParseTABFileFields()
         {
             // Simply Ignore unrecognized lines
         }
-
     }
 
     CSLDestroy(papszTok);
@@ -977,7 +916,7 @@ int TABFile::WriteTABFile()
 
     // First update file version number...
     int nMapObjVersion = m_poMAPFile->GetMinTABFileVersion();
-    m_nVersion = MAX(m_nVersion, nMapObjVersion);
+    m_nVersion = std::max(m_nVersion, nMapObjVersion);
 
     VSILFILE *fp = VSIFOpenL(m_pszFname, "wt");
     if( fp != NULL )
@@ -1056,7 +995,6 @@ int TABFile::WriteTABFile()
                             poFieldDefn->GetNameRef(), pszFieldType,
                             GetFieldIndexNumber(iField) );
                 }
-
             }
         }
         else
@@ -1179,11 +1117,8 @@ int TABFile::SetQuickSpatialIndexMode(GBool bQuickSpatialIndexMode/*=TRUE*/)
         return -1;
     }
 
-
     return m_poMAPFile->SetQuickSpatialIndexMode(bQuickSpatialIndexMode);
 }
-
-
 
 /**********************************************************************
  *                   TABFile::GetNextFeatureId()
@@ -1530,7 +1465,6 @@ int TABFile::WriteFeature(TABFeature *poFeature)
 
     poFeature->SetFID(nFeatureId);
 
-
     /*-----------------------------------------------------------------
      * Write fields to the .DAT file and update .IND if necessary
      *----------------------------------------------------------------*/
@@ -1581,7 +1515,7 @@ int TABFile::WriteFeature(TABFeature *poFeature)
      * feature's IntMBR. Store that value in the ObjHdr for use by
      * PrepareNewObj() to search the best node to insert the feature.
      *----------------------------------------------------------------*/
-    if ( poObjHdr && poObjHdr->m_nType != TAB_GEOM_NONE)
+    if ( poObjHdr->m_nType != TAB_GEOM_NONE)
     {
         poFeature->GetIntMBR(poObjHdr->m_nMinX, poObjHdr->m_nMinY,
                              poObjHdr->m_nMaxX, poObjHdr->m_nMaxY);
@@ -1606,14 +1540,13 @@ int TABFile::WriteFeature(TABFeature *poFeature)
         return -1;
     }
 
-    m_nLastFeatureId = MAX(m_nLastFeatureId, nFeatureId);
+    m_nLastFeatureId = std::max(m_nLastFeatureId, nFeatureId);
     m_nCurFeatureId = nFeatureId;
 
     delete poObjHdr;
 
     return 0;
 }
-
 
 /**********************************************************************
  *                   TABFile::CreateFeature()
@@ -1795,7 +1728,6 @@ OGRErr TABFile::ISetFeature( OGRFeature *poFeature )
 
     return OGRERR_NONE;
 }
-
 
 /**********************************************************************
  *                   TABFile::GetLayerDefn()
@@ -1989,15 +1921,16 @@ int TABFile::AddFieldNative(const char *pszName, TABFieldType eMapInfoType,
     }
 
     char szNewFieldName[31+1];  // 31 is the max characters for a field name.
-    strncpy(szNewFieldName, pszCleanName, 31);
-    szNewFieldName[31] = '\0';
+    strncpy(szNewFieldName, pszCleanName, sizeof(szNewFieldName)-1);
+    szNewFieldName[sizeof(szNewFieldName)-1] = '\0';
 
     int nRenameNum = 1;
+
     while (m_poDefn->GetFieldIndex(szNewFieldName) >= 0 && nRenameNum < 10)
-      snprintf( szNewFieldName, sizeof(szNewFieldName), "%.29s_%.1d", pszCleanName, nRenameNum++ );
+      CPLsnprintf( szNewFieldName, sizeof(szNewFieldName), "%.29s_%.1d", pszCleanName, nRenameNum++ );
 
     while (m_poDefn->GetFieldIndex(szNewFieldName) >= 0 && nRenameNum < 100)
-      snprintf( szNewFieldName, sizeof(szNewFieldName), "%.29s%.2d", pszCleanName, nRenameNum++ );
+      CPLsnprintf( szNewFieldName, sizeof(szNewFieldName), "%.29s%.2d", pszCleanName, nRenameNum++ );
 
     if (m_poDefn->GetFieldIndex(szNewFieldName) >= 0)
     {
@@ -2069,7 +2002,7 @@ int TABFile::AddFieldNative(const char *pszName, TABFieldType eMapInfoType,
                                                    OFTString);
 #endif
         poFieldDefn->SetWidth(10);
-        m_nVersion = MAX(m_nVersion, 450);
+        m_nVersion = std::max(m_nVersion, 450);
         break;
       case TABFTime:
         /*-------------------------------------------------
@@ -2082,7 +2015,7 @@ int TABFile::AddFieldNative(const char *pszName, TABFieldType eMapInfoType,
                                                    OFTString);
 #endif
         poFieldDefn->SetWidth(8);
-        m_nVersion = MAX(m_nVersion, 900);
+        m_nVersion = std::max(m_nVersion, 900);
         break;
       case TABFDateTime:
         /*-------------------------------------------------
@@ -2095,7 +2028,7 @@ int TABFile::AddFieldNative(const char *pszName, TABFieldType eMapInfoType,
                                                    OFTString);
 #endif
         poFieldDefn->SetWidth(19);
-        m_nVersion = MAX(m_nVersion, 900);
+        m_nVersion = std::max(m_nVersion, 900);
         break;
       case TABFLogical:
         /*-------------------------------------------------
@@ -2143,7 +2076,6 @@ int TABFile::AddFieldNative(const char *pszName, TABFieldType eMapInfoType,
     return nStatus;
 }
 
-
 /**********************************************************************
  *                   TABFile::GetNativeFieldType()
  *
@@ -2162,8 +2094,6 @@ TABFieldType TABFile::GetNativeFieldType(int nFieldId)
     }
     return TABFUnknown;
 }
-
-
 
 /**********************************************************************
  *                   TABFile::GetFieldIndexNumber()
@@ -2220,7 +2150,6 @@ int TABFile::SetFieldIndexed( int nFieldId )
     if (m_panIndexNo[nFieldId] != 0)
         return 0;  // Nothing to do
 
-
     /*-----------------------------------------------------------------
      * Create .IND file if it's not done yet.
      *
@@ -2268,10 +2197,8 @@ int TABFile::SetFieldIndexed( int nFieldId )
  ************************************************************************/
 GBool TABFile::IsFieldIndexed( int nFieldId )
 {
-    return (GetFieldIndexNumber(nFieldId) > 0 ? TRUE:FALSE);
+    return GetFieldIndexNumber(nFieldId) > 0 ? TRUE : FALSE;
 }
-
-
 
 /**********************************************************************
  *                   TABFile::GetINDFileRef()
@@ -2327,7 +2254,6 @@ TABINDFile  *TABFile::GetINDFileRef()
     return m_poINDFile;
 }
 
-
 /**********************************************************************
  *                   TABFile::SetBounds()
  *
@@ -2368,7 +2294,6 @@ int TABFile::SetBounds(double dXMin, double dYMin,
     return 0;
 }
 
-
 /**********************************************************************
  *                   TABFile::GetBounds()
  *
@@ -2383,36 +2308,37 @@ int TABFile::GetBounds(double &dXMin, double &dYMin,
                        double &dXMax, double &dYMax,
                        GBool /*bForce = TRUE*/)
 {
-    TABMAPHeaderBlock *poHeader = NULL;
-
-    if (m_poMAPFile && (poHeader=m_poMAPFile->GetHeaderBlock()) != NULL)
+    if (m_poMAPFile)
     {
+        TABMAPHeaderBlock* poHeader =m_poMAPFile->GetHeaderBlock();
+        if( poHeader != NULL)
+        {
         /*-------------------------------------------------------------
          * Projection bounds correspond to the +/- 1e9 integer coord. limits
          *------------------------------------------------------------*/
-        double dX0, dX1, dY0, dY1;
-        m_poMAPFile->Int2Coordsys(-1000000000, -1000000000,
-                                  dX0, dY0);
-        m_poMAPFile->Int2Coordsys(1000000000, 1000000000,
-                                  dX1, dY1);
+            double dX0 = 0.0;
+            double dX1 = 0.0;
+            double dY0 = 0.0;
+            double dY1 = 0.0;
+            m_poMAPFile->Int2Coordsys(-1000000000, -1000000000,
+                                    dX0, dY0);
+            m_poMAPFile->Int2Coordsys(1000000000, 1000000000,
+                                        dX1, dY1);
         /*-------------------------------------------------------------
          * ... and make sure that Min < Max
-         *------------------------------------------------------------*/
-        dXMin = MIN(dX0, dX1);
-        dXMax = MAX(dX0, dX1);
-        dYMin = MIN(dY0, dY1);
-        dYMax = MAX(dY0, dY1);
-    }
-    else
-    {
-        CPLError(CE_Failure, CPLE_AppDefined,
-             "GetBounds() can be called only after dataset has been opened.");
-        return -1;
+            *------------------------------------------------------------*/
+            dXMin = std::min(dX0, dX1);
+            dXMax = std::max(dX0, dX1);
+            dYMin = std::min(dY0, dY1);
+            dYMax = std::max(dY0, dY1);
+            return 0;
+        }
     }
 
-    return 0;
+    CPLError(CE_Failure, CPLE_AppDefined,
+            "GetBounds() can be called only after dataset has been opened.");
+    return -1;
 }
-
 
 /**********************************************************************
  *                   TABFile::GetExtent()
@@ -2431,7 +2357,10 @@ OGRErr TABFile::GetExtent (OGREnvelope *psExtent,
 
     if (m_poMAPFile && (poHeader=m_poMAPFile->GetHeaderBlock()) != NULL)
     {
-        double dX0, dX1, dY0, dY1;
+        double dX0 = 0.0;
+        double dX1 = 0.0;
+        double dY0 = 0.0;
+        double dY1 = 0.0;
         /*-------------------------------------------------------------
          * Fetch extent of the data from the .map header block
          * this value is different from the projection bounds.
@@ -2444,10 +2373,10 @@ OGRErr TABFile::GetExtent (OGREnvelope *psExtent,
        /*-------------------------------------------------------------
          * ... and make sure that Min < Max
          *------------------------------------------------------------*/
-        psExtent->MinX = MIN(dX0, dX1);
-        psExtent->MaxX = MAX(dX0, dX1);
-        psExtent->MinY = MIN(dY0, dY1);
-        psExtent->MaxY = MAX(dY0, dY1);
+        psExtent->MinX = std::min(dX0, dX1);
+        psExtent->MaxX = std::max(dX0, dX1);
+        psExtent->MinY = std::min(dY0, dY1);
+        psExtent->MaxY = std::max(dY0, dY1);
 
         return OGRERR_NONE;
     }
@@ -2492,7 +2421,6 @@ int TABFile::GetFeatureCountByType(int &numPoints, int &numLines,
     return 0;
 }
 
-
 /**********************************************************************
  *                   TABFile::SetMIFCoordSys()
  *
@@ -2522,12 +2450,15 @@ int TABFile::SetMIFCoordSys(const char *pszMIFCoordSys)
 
         if (poSpatialRef)
         {
-            double dXMin, dYMin, dXMax, dYMax;
+            double dXMin = 0.0;
+            double dYMin = 0.0;
+            double dXMax = 0.0;
+            double dYMax = 0.0;
             if (SetSpatialRef(poSpatialRef) == 0)
             {
-                if (MITABExtractCoordSysBounds(pszMIFCoordSys,
+                if( MITABExtractCoordSysBounds(pszMIFCoordSys,
                                                dXMin, dYMin,
-                                               dXMax, dYMax) == TRUE)
+                                               dXMax, dYMax) )
                 {
                     // If the coordsys string contains bounds, then use them
                     if (SetBounds(dXMin, dYMin, dXMax, dYMax) != 0)
@@ -2586,10 +2517,13 @@ int TABFile::SetProjInfo(TABProjInfo *poPI)
     /*-----------------------------------------------------------------
      * Lookup default bounds and reset m_bBoundsSet flag
      *----------------------------------------------------------------*/
-    double dXMin, dYMin, dXMax, dYMax;
+    double dXMin;
+    double dYMin;
+    double dXMax;
+    double dYMax;
 
     m_bBoundsSet = FALSE;
-    if (MITABLookupCoordSysBounds(poPI, dXMin, dYMin, dXMax, dYMax) == TRUE)
+    if( MITABLookupCoordSysBounds(poPI, dXMin, dYMin, dXMax, dYMax) )
     {
         SetBounds(dXMin, dYMin, dXMax, dYMax);
     }
@@ -2612,7 +2546,6 @@ int TABFile::SetProjInfo(TABProjInfo *poPI)
 
     return 0;
 }
-
 
 /************************************************************************/
 /*                            DeleteField()                             */
@@ -2854,12 +2787,11 @@ void TABFile::Dump(FILE *fpOut /*=NULL*/)
 
             GetSpatialRef()->exportToWkt( &pszWKT );
             fprintf( fpOut, "SRS = %s\n", pszWKT );
-            OGRFree( pszWKT );
+            CPLFree( pszWKT );
         }
         fprintf(fpOut, "Associated .MAP file ...\n\n");
         m_poMAPFile->Dump(fpOut);
         fprintf(fpOut, "... end of .MAP file dump.\n\n");
-
     }
 
     fflush(fpOut);

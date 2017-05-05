@@ -76,8 +76,8 @@ static const long aoVCS[] =
 #define NUMBER_OF_VERTICALCS    (sizeof(aoVCS)/sizeof(aoVCS[0]))
 
 // EPSG code range http://gis.stackexchange.com/a/18676/9904
-#define MIN_EPSG 1000
-#define MAX_EPSG 3768
+static const int MIN_EPSG = 1000;
+static const int MAX_EPSG = 3768;
 
 /************************************************************************/
 /*                         OGRSXFDataSource()                           */
@@ -210,7 +210,6 @@ int OGRSXFDataSource::Open( const char * pszFilename, int bUpdateIn)
         return FALSE;
     }
 
-
     //read flags
     if (ReadSXFInformationFlags(fpSXF, oSXFPassport) != OGRERR_NONE)
     {
@@ -268,7 +267,6 @@ int OGRSXFDataSource::Open( const char * pszFilename, int bUpdateIn)
             soRSCRileName = pszRSCRileName;
         }
     }
-
 
     // 1. Create layers from RSC file or create default set of layers from
     // gdal_data/default.rsc.
@@ -346,6 +344,7 @@ OGRErr OGRSXFDataSource::ReadSXFDescription(VSILFILE* fpSXFIn, SXFPassport& pass
 
         char szName[26] = { 0 };
         memcpy(szName, buff + 8, 24);
+        szName[ sizeof(szName) - 1 ] = '\0';
         char* pszRecoded = CPLRecode(szName, "CP1251", CPL_ENC_UTF8);// szName + 2
         passport.sMapSheet = pszRecoded; //TODO: check the encoding in SXF created in Linux
         CPLFree(pszRecoded);
@@ -353,12 +352,11 @@ OGRErr OGRSXFDataSource::ReadSXFDescription(VSILFILE* fpSXFIn, SXFPassport& pass
         memcpy(&passport.nScale, buff + 32, 4);
         CPL_LSBPTR32(&passport.nScale);
 
-        memset(szName, 0, 26);
         memcpy(szName, buff + 36, 26);
+        szName[ sizeof(szName) - 1 ] = '\0';
         pszRecoded = CPLRecode(szName, "CP866", CPL_ENC_UTF8);
         passport.sMapSheetName = pszRecoded; //TODO: check the encoding in SXF created in Linux
         CPLFree(pszRecoded);
-
     }
     else if (passport.version == 4)
     {
@@ -371,8 +369,8 @@ OGRErr OGRSXFDataSource::ReadSXFDescription(VSILFILE* fpSXFIn, SXFPassport& pass
         memcpy(date, buff, 4);
         passport.dtCrateDate.nYear = static_cast<GUInt16>(atoi(date));
 
-        memset(date, 0, 5);
         memcpy(date, buff + 4, 2);
+        memset(date+2, 0, 3);
 
         passport.dtCrateDate.nMonth = static_cast<GUInt16>(atoi(date));
 
@@ -382,6 +380,7 @@ OGRErr OGRSXFDataSource::ReadSXFDescription(VSILFILE* fpSXFIn, SXFPassport& pass
 
         char szName[32] = { 0 };
         memcpy(szName, buff + 12, 32);
+        szName[ sizeof(szName) - 1 ] = '\0';
         char* pszRecoded = CPLRecode(szName, "CP1251", CPL_ENC_UTF8); //szName + 2
         passport.sMapSheet = pszRecoded; //TODO: check the encoding in SXF created in Linux
         CPLFree(pszRecoded);
@@ -389,8 +388,8 @@ OGRErr OGRSXFDataSource::ReadSXFDescription(VSILFILE* fpSXFIn, SXFPassport& pass
         memcpy(&passport.nScale, buff + 44, 4);
         CPL_LSBPTR32(&passport.nScale);
 
-        memset(szName, 0, 32);
         memcpy(szName, buff + 48, 32);
+        szName[ sizeof(szName) - 1 ] = '\0';
         pszRecoded = CPLRecode(szName, "CP1251", CPL_ENC_UTF8);
         passport.sMapSheetName = pszRecoded; //TODO: check the encoding in SXF created in Linux
         CPLFree(pszRecoded);
@@ -607,7 +606,6 @@ OGRErr OGRSXFDataSource::ReadSXFMapDescription(VSILFILE* fpSXFIn, SXFPassport& p
                     passport.stMapDescription.Env.MinX = passport.stMapDescription.stProjCoords[i];
             }
             bIsX = !bIsX;
-
         }
         //get geographic corner coords
         /* nObjectsRead = */ VSIFReadL(&dfCorners, 64, 1, fpSXFIn);
@@ -616,7 +614,6 @@ OGRErr OGRSXFDataSource::ReadSXFMapDescription(VSILFILE* fpSXFIn, SXFPassport& p
         {
             passport.stMapDescription.stGeoCoords[i] = dfCorners[i] * TO_DEGREES; // to degree
         }
-
     }
 
     if (NULL != passport.stMapDescription.pSpatRef)
@@ -658,11 +655,11 @@ OGRErr OGRSXFDataSource::ReadSXFMapDescription(VSILFILE* fpSXFIn, SXFPassport& p
             break;
         }
 
-
         VSIFSeekL(fpSXFIn, 212, SEEK_SET);
         struct _buff{
             GUInt32 nRes;
             GInt16 anFrame[8];
+            // cppcheck-suppress unusedStructMember
             GUInt32 nFrameCode;
         } buff;
         /* nObjectsRead = */ VSIFReadL(&buff, 20, 1, fpSXFIn);
@@ -690,7 +687,6 @@ OGRErr OGRSXFDataSource::ReadSXFMapDescription(VSILFILE* fpSXFIn, SXFPassport& p
         passport.stMapDescription.dfFalseNorthing = 0;
         passport.stMapDescription.dfFalseEasting = 0;
 
-
         //adfPrjParams[0] = double(anParams[0]) / 100000000.0; // to radians
         //adfPrjParams[1] = double(anParams[1]) / 100000000.0;
         //adfPrjParams[2] = double(anParams[2]) / 100000000.0;
@@ -699,7 +695,6 @@ OGRErr OGRSXFDataSource::ReadSXFMapDescription(VSILFILE* fpSXFIn, SXFPassport& p
         //adfPrjParams[5] = 0;//?
         //adfPrjParams[6] = 0;//?
         //adfPrjParams[7] = 0;// importFromPanorama calc it by itself
-
     }
     else if (passport.version == 4)
     {
@@ -987,7 +982,6 @@ void OGRSXFDataSource::CreateLayers()
     papoLayers = (OGRLayer**)CPLRealloc(papoLayers, sizeof(OGRLayer*)* (nLayers + 1));
     papoLayers[nLayers] = new OGRSXFLayer(fpSXF, &hIOMutex, 255, CPLString("Not_Classified"), oSXFPassport.version, oSXFPassport.stMapDescription);
     nLayers++;
-
 }
 
 void OGRSXFDataSource::CreateLayers(VSILFILE* fpRSC)
@@ -1009,7 +1003,9 @@ void OGRSXFDataSource::CreateLayers(VSILFILE* fpRSC)
         char szName[32];
         char szShortName[16];
         GByte nNo;
+        // cppcheck-suppress unusedStructMember
         GByte nPos;
+        // cppcheck-suppress unusedStructMember
         GUInt16 nSemanticCount;
     };
 
@@ -1019,7 +1015,6 @@ void OGRSXFDataSource::CreateLayers(VSILFILE* fpRSC)
     VSIFReadL(&szLayersID, sizeof(szLayersID), 1, fpRSC);
     vsi_l_offset nOffset = stRSCFileHeader.Layers.nOffset;
     _layer LAYER;
-
 
     for( GUInt32 i = 0; i < stRSCFileHeader.Layers.nRecordCount; ++i )
     {
@@ -1066,17 +1061,20 @@ void OGRSXFDataSource::CreateLayers(VSILFILE* fpRSC)
     papoLayers[nLayers] = new OGRSXFLayer(fpSXF, &hIOMutex, 255, CPLString("Not_Classified"), oSXFPassport.version, oSXFPassport.stMapDescription);
     nLayers++;
 
-
     char szObjectsID[4];
     struct _object{
         unsigned nLength;
         unsigned nClassifyCode;
+        // cppcheck-suppress unusedStructMember
         unsigned nObjectNumber;
+        // cppcheck-suppress unusedStructMember
         unsigned nObjectCode;
         char szShortName[32];
         char szName[32];
+        // cppcheck-suppress unusedStructMember
         char szGeomType;
         char szLayernNo;
+        // cppcheck-suppress unusedStructMember
         char szUnimportantSeg[14];
     };
 

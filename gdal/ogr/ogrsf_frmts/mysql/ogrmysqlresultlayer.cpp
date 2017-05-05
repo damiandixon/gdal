@@ -40,8 +40,7 @@ CPL_CVSID("$Id$");
 OGRMySQLResultLayer::OGRMySQLResultLayer( OGRMySQLDataSource *poDSIn,
                                           const char * pszRawQueryIn,
                                           MYSQL_RES *hResultSetIn ) :
-    pszRawStatement(CPLStrdup(pszRawQueryIn)),
-    nSRSId(0)  // TODO(schwehr): Does this shadow nSRSId in OGRMySQLLayer?
+    pszRawStatement(CPLStrdup(pszRawQueryIn))
 {
     poDS = poDSIn;
     iNextShapeId = 0;
@@ -224,7 +223,6 @@ OGRFeatureDefn *OGRMySQLResultLayer::ReadResultDefinition()
         }
     }
 
-
     poDefn->SetGeomType( wkbNone );
 
     if (pszGeomColumn)
@@ -250,7 +248,6 @@ OGRFeatureDefn *OGRMySQLResultLayer::ReadResultDefinition()
         papszRow = NULL;
         if( hResultSet != NULL )
             papszRow = mysql_fetch_row( hResultSet );
-
 
         if( papszRow != NULL && papszRow[0] != NULL )
         {

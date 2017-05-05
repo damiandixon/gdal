@@ -30,6 +30,8 @@
 
 #include "ntf.h"
 
+#include <algorithm>
+
 CPL_CVSID("$Id$");
 
 /************************************************************************/
@@ -235,7 +237,7 @@ OGRNTFRasterLayer::OGRNTFRasterLayer( OGRNTFDataSource *poDSIn,
     iCurrentFC(0),
     // Check for DEM subsampling.
     nDEMSample(poDSIn->GetOption( "DEM_SAMPLE" ) == NULL ?
-               1 : MAX(1,atoi(poDSIn->GetOption("DEM_SAMPLE")))),
+               1 : std::max(1, atoi(poDSIn->GetOption("DEM_SAMPLE")))),
     nFeatureCount(0)
 {
     char szLayerName[128];
@@ -403,16 +405,8 @@ int OGRNTFRasterLayer::TestCapability( const char * pszCap )
     if( EQUAL(pszCap,OLCRandomRead) )
         return TRUE;
 
-    else if( EQUAL(pszCap,OLCSequentialWrite)
-             || EQUAL(pszCap,OLCRandomWrite) )
-        return FALSE;
-
     else if( EQUAL(pszCap,OLCFastFeatureCount) )
         return TRUE;
 
-    else if( EQUAL(pszCap,OLCFastSpatialFilter) )
-        return FALSE;
-
-    else
-        return FALSE;
+    return FALSE;
 }

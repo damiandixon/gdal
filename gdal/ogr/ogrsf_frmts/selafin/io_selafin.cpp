@@ -43,7 +43,8 @@ namespace Selafin {
         const Header *poHeader;
     };
 
-    static void GetBoundsFunc(const void *hFeature,CPLRectObj *poBounds) {
+    static void GetBoundsFunc( const void *hFeature,CPLRectObj *poBounds )
+    {
         const Point *poPoint=(const Point*)hFeature;
         poBounds->minx=poPoint->poHeader->paadfCoords[0][poPoint->nIndex];
         poBounds->maxx=poPoint->poHeader->paadfCoords[0][poPoint->nIndex];
@@ -51,13 +52,13 @@ namespace Selafin {
         poBounds->maxy=poPoint->poHeader->paadfCoords[1][poPoint->nIndex];
     }
 
-    static int DumpFeatures(void *pElt,
-                     CPL_UNUSED void *pUserData) {
+    static int DumpFeatures( void *pElt,
+                             void * /* pUserData */ )
+    {
         Point *poPoint=(Point*)pElt;
         delete poPoint;
         return TRUE;
     }
-
 
     /****************************************************************/
     /*                         Header                               */
@@ -88,6 +89,8 @@ namespace Selafin {
         paadfCoords[0] = NULL;
         paadfCoords[1] = NULL;
         for( size_t i = 0; i < 7; ++i ) anUnused[i] = 0;
+        adfOrigin[0] = 0.0;
+        adfOrigin[1] = 0.0;
     }
 
     Header::~Header() {
@@ -143,7 +146,9 @@ namespace Selafin {
         }
     }
 
-    int Header::getClosestPoint(const double &dfx,const double &dfy,const double &dfMax) {
+    int Header::getClosestPoint( const double &dfx, const double &dfy,
+                                 const double &dfMax)
+    {
         // If there is no quad-tree of the points, build it now
         if (bTreeUpdateNeeded) {
             if (poTree!=NULL) {
@@ -165,10 +170,10 @@ namespace Selafin {
             }
         }
         // Now we can look for the nearest neighbour using this tree
-        int nIndex=-1;
+        int nIndex = -1;
         CPLRectObj poObj;
-        poObj.minx=dfx-dfMax;
-        poObj.maxx=dfx+dfMax;
+        poObj.minx = dfx-dfMax;
+        poObj.maxx = dfx+dfMax;
         poObj.miny=dfy-dfMax;
         poObj.maxy=dfy+dfMax;
         int nFeatureCount = 0;
@@ -405,7 +410,8 @@ namespace Selafin {
         return 1;
     }
 
-    int read_float(VSILFILE *fp,double &dfData,bool bDiscard) {
+    int read_float(VSILFILE *fp, double &dfData, bool bDiscard)
+    {
         float dfVal = 0.0;
         if (VSIFReadL(&dfVal,1,4,fp)<4) {
             CPLError(CE_Failure,CPLE_FileIO,"%s",SELAFIN_ERROR_MESSAGE);
@@ -418,7 +424,7 @@ namespace Selafin {
         return 1;
     }
 
-    int write_float(VSILFILE *fp,double dfData) {
+    int write_float(VSILFILE *fp, double dfData) {
         float dfVal=(float)dfData;
         CPL_MSBPTR32(&dfVal);
         if (VSIFWriteL(&dfVal,1,4,fp)<4) {
@@ -653,7 +659,6 @@ namespace Selafin {
         }
         return 1;
     }
-
 
     int write_step(VSILFILE *fp,const Header *poHeader,const TimeStep *poStep) {
         if (write_integer(fp,1)==0) return 0;

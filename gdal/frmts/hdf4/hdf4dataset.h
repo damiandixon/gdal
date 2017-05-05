@@ -96,14 +96,13 @@ class HDF4Dataset : public GDALPamDataset
                 HDF4Dataset();
     virtual ~HDF4Dataset();
 
-    virtual char      **GetMetadataDomainList();
-    virtual char        **GetMetadata( const char * pszDomain = "" );
+    virtual char      **GetMetadataDomainList() override;
+    virtual char        **GetMetadata( const char * pszDomain = "" ) override;
     static GDALDataset  *Open( GDALOpenInfo * );
     static int          Identify( GDALOpenInfo * );
 };
 
 char *SPrintArray( GDALDataType eDataType, const void *paDataArray,
                    int nValues, const char *pszDelimiter );
-
 
 #endif /* HDF4DATASET_H_INCLUDED_ */

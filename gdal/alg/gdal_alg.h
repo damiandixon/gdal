@@ -234,7 +234,6 @@ int  CPL_DLL GDALApproxTransform(
     void *pTransformArg, int bDstToSrc, int nPointCount,
     double *x, double *y, double *z, int *panSuccess );
 
-
 int CPL_DLL CPL_STDCALL
 GDALSimpleImageWarp( GDALDatasetH hSrcDS,
                      GDALDatasetH hDstDS,
@@ -358,7 +357,6 @@ GDALRasterizeLayersBuf( void *pData, int nBufXSize, int nBufYSize,
                         char **papszOptions, GDALProgressFunc pfnProgress,
                         void *pProgressArg );
 
-
 /************************************************************************/
 /*  Gridding interface.                                                 */
 /************************************************************************/
@@ -425,6 +423,8 @@ typedef struct
     double  dfPower;
     /*! The radius of search circle. */
     double  dfRadius;
+    /*! Smoothing parameter. */
+    double  dfSmoothing;
 
     /*! Maximum number of data points to use.
      *
@@ -515,7 +515,6 @@ typedef struct
     /*! No data marker to fill empty points. */
     double  dfNoDataValue;
 } GDALGridLinearOptions;
-
 
 CPLErr CPL_DLL
 GDALGridCreate( GDALGridAlgorithm, const void *, GUInt32,
@@ -616,6 +615,17 @@ void CPL_DLL GDALTriangulationFree(GDALTriangulation* psDT);
 // GDAL internal use only
 void GDALTriangulationTerminate(void);
 /*! @endcond */
+
+GDALDatasetH CPL_DLL GDALOpenVerticalShiftGrid(
+                                        const char* pszProj4Geoidgrids,
+                                        int* pbError );
+
+GDALDatasetH CPL_DLL GDALApplyVerticalShiftGrid( GDALDatasetH hSrcDataset,
+                                         GDALDatasetH hGridDataset,
+                                         int bInverse,
+                                         double dfSrcUnitToMeter,
+                                         double dfDstUnitToMeter,
+                                         const char* const* papszOptions );
 
 CPL_C_END
 

@@ -33,6 +33,8 @@
 #include "cpl_string.h"
 #include "ogr_featurestyle.h"
 
+#include <cstdlib>
+
 CPL_CVSID("$Id$");
 
 /************************************************************************/
@@ -515,7 +517,6 @@ OGRErr OGRDXFWriterLayer::WriteTEXT( OGRFeature *poFeature )
     }
 
     return OGRERR_NONE;
-
 }
 
 /************************************************************************/
@@ -624,7 +625,8 @@ OGRErr OGRDXFWriterLayer::WritePOLYLINE( OGRFeature *poFeature,
 /* -------------------------------------------------------------------- */
 /*      Polygons are written with on entity per ring.                   */
 /* -------------------------------------------------------------------- */
-    if( wkbFlatten(poGeom->getGeometryType()) == wkbPolygon )
+    if( wkbFlatten(poGeom->getGeometryType()) == wkbPolygon
+        || wkbFlatten(poGeom->getGeometryType()) == wkbTriangle)
     {
         OGRPolygon *poPoly = (OGRPolygon *) poGeom;
         OGRErr eErr;
@@ -726,7 +728,7 @@ OGRErr OGRDXFWriterLayer::WritePOLYLINE( OGRFeature *poFeature,
 /* -------------------------------------------------------------------- */
     CPLString osLineType = poFeature->GetFieldAsString( "Linetype" );
 
-    if( osLineType.size() > 0
+    if( !osLineType.empty()
         && (poDS->oHeaderDS.LookupLineType( osLineType ) != NULL
             || oNewLineTypes.count(osLineType) > 0 ) )
     {
@@ -745,7 +747,7 @@ OGRErr OGRDXFWriterLayer::WritePOLYLINE( OGRFeature *poFeature,
 
             for( it = oNewLineTypes.begin();
                  it != oNewLineTypes.end();
-                 it++ )
+                 ++it )
             {
                 if( (*it).second == osDefinition )
                 {
@@ -891,8 +893,11 @@ OGRErr OGRDXFWriterLayer::WriteHATCH( OGRFeature *poFeature,
 /* -------------------------------------------------------------------- */
 /*      Do we now have a geometry we can work with?                     */
 /* -------------------------------------------------------------------- */
-    if( wkbFlatten(poGeom->getGeometryType()) != wkbPolygon )
+    if( wkbFlatten(poGeom->getGeometryType()) != wkbPolygon &&
+        wkbFlatten(poGeom->getGeometryType()) != wkbTriangle )
+    {
         return OGRERR_UNSUPPORTED_GEOMETRY_TYPE;
+    }
 
 /* -------------------------------------------------------------------- */
 /*      Write as a hatch.                                               */
@@ -961,7 +966,7 @@ OGRErr OGRDXFWriterLayer::WriteHATCH( OGRFeature *poFeature,
 /* -------------------------------------------------------------------- */
     CPLString osLineType = poFeature->GetFieldAsString( "Linetype" );
 
-    if( osLineType.size() > 0
+    if( !osLineType.empty()
         && (poDS->oHeaderDS.LookupLineType( osLineType ) != NULL
             || oNewLineTypes.count(osLineType) > 0 ) )
     {
@@ -1133,7 +1138,8 @@ OGRErr OGRDXFWriterLayer::ICreateFeature( OGRFeature *poFeature )
         return WritePOLYLINE( poFeature );
 
     else if( eGType == wkbPolygon
-             || eGType == wkbMultiPolygon )
+             || eGType == wkbTriangle
+             || eGType == wkbMultiPolygon)
     {
         if( bWriteHatch )
             return WriteHATCH( poFeature );
@@ -1181,10 +1187,10 @@ int OGRDXFWriterLayer::ColorStringToDXFColor( const char *pszRGB )
     if( pszRGB == NULL )
         return -1;
 
-    int nRed = 0;
-    int nGreen = 0;
-    int nBlue = 0;
-    int nTransparency = 255;
+    unsigned int nRed = 0;
+    unsigned int nGreen = 0;
+    unsigned int nBlue = 0;
+    unsigned int nTransparency = 255;
 
     const int nCount =
         sscanf(pszRGB, "#%2x%2x%2x%2x", &nRed, &nGreen, &nBlue, &nTransparency);
@@ -1202,9 +1208,9 @@ int OGRDXFWriterLayer::ColorStringToDXFColor( const char *pszRGB )
     for( int i = 1; i < 256; i++ )
     {
         const int nDist =
-            ABS(nRed - pabyDXFColors[i*3+0])
-            + ABS(nGreen - pabyDXFColors[i*3+1])
-            + ABS(nBlue  - pabyDXFColors[i*3+2]);
+            std::abs(static_cast<int>(nRed) - pabyDXFColors[i*3+0])
+            + std::abs(static_cast<int>(nGreen) - pabyDXFColors[i*3+1])
+            + std::abs(static_cast<int>(nBlue)  - pabyDXFColors[i*3+2]);
 
         if( nDist < nMinDist )
         {

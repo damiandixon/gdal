@@ -82,7 +82,8 @@ void OGRMSSQLAppendEscaped( CPLODBCStatement* poStatement, const char* pszStrVal
 
 OGRMSSQLSpatialTableLayer::OGRMSSQLSpatialTableLayer( OGRMSSQLSpatialDataSource *poDSIn ) :
     bLaunderColumnNames(FALSE),
-    bPreservePrecision(FALSE)
+    bPreservePrecision(FALSE),
+    eGeomType(wkbNone)
 {
     poDS = poDSIn;
 
@@ -99,8 +100,6 @@ OGRMSSQLSpatialTableLayer::OGRMSSQLSpatialTableLayer( OGRMSSQLSpatialDataSource 
     pszTableName = NULL;
     pszLayerName = NULL;
     pszSchemaName = NULL;
-
-    eGeomType = wkbNone;
 
     bNeedSpatialIndex = FALSE;
 #ifdef SQL_SS_UDT
@@ -310,7 +309,6 @@ CPLErr OGRMSSQLSpatialTableLayer::Initialize( const char *pszSchema,
 
     if (eType != wkbNone)
         eGeomType = eType;
-
 
 /* -------------------------------------------------------------------- */
 /*             Try to find out the spatial reference                    */
@@ -564,7 +562,6 @@ CPLODBCStatement *OGRMSSQLSpatialTableLayer::GetStatement()
     return poStmt;
 }
 
-
 /************************************************************************/
 /*                           BuildStatement()                           */
 /************************************************************************/
@@ -698,7 +695,6 @@ OGRErr OGRMSSQLSpatialTableLayer::SetAttributeFilter( const char *pszQueryIn )
     return OGRERR_NONE;
 }
 
-
 /************************************************************************/
 /*                           TestCapability()                           */
 /************************************************************************/
@@ -713,7 +709,7 @@ int OGRMSSQLSpatialTableLayer::TestCapability( const char * pszCap )
             return TRUE;
 
         else if( EQUAL(pszCap,OLCRandomWrite) )
-            return (pszFIDColumn != NULL);
+            return pszFIDColumn != NULL;
     }
 
 #if (ODBCVER >= 0x0300)
@@ -728,7 +724,7 @@ int OGRMSSQLSpatialTableLayer::TestCapability( const char * pszCap )
         return TRUE;
 
     if( EQUAL(pszCap,OLCRandomRead) )
-        return (pszFIDColumn != NULL);
+        return pszFIDColumn != NULL;
     else if( EQUAL(pszCap,OLCFastFeatureCount) )
         return TRUE;
     else
@@ -761,7 +757,6 @@ GIntBig OGRMSSQLSpatialTableLayer::GetFeatureCount( int bForce )
     delete poStatement;
     return nRet;
 }
-
 
 /************************************************************************/
 /*                            CreateField()                             */
@@ -931,7 +926,6 @@ OGRErr OGRMSSQLSpatialTableLayer::ISetFeature( OGRFeature *poFeature )
                   "Unable to update features in tables without\n"
                   "a recognised FID column.");
         return eErr;
-
     }
 
     ClearStatement();
@@ -955,7 +949,6 @@ OGRErr OGRMSSQLSpatialTableLayer::ISetFeature( OGRFeature *poFeature )
     int nFieldCount = poFeatureDefn->GetFieldCount();
     int bind_num = 0;
     void** bind_buffer = (void**)CPLMalloc(sizeof(void*) * nFieldCount);
-
 
     int bNeedComma = FALSE;
     SQLLEN nWKBLenBindParameter;
@@ -1089,7 +1082,7 @@ OGRErr OGRMSSQLSpatialTableLayer::ISetFeature( OGRFeature *poFeature )
             bNeedComma = TRUE;
         }
 
-        if( !poFeature->IsFieldSet( i ) )
+        if( !poFeature->IsFieldSetAndNotNull( i ) )
             oStmt.Append( "null" );
         else
             AppendFieldValue(&oStmt, poFeature, i, &bind_num, bind_buffer);
@@ -1329,12 +1322,9 @@ void OGRMSSQLSpatialTableLayer::CloseBCP()
     }
 }
 
-
-
 /************************************************************************/
 /*                            CreateFeatureBCP()                        */
 /************************************************************************/
-
 
 OGRErr OGRMSSQLSpatialTableLayer::CreateFeatureBCP( OGRFeature *poFeature )
 
@@ -1621,7 +1611,7 @@ OGRErr OGRMSSQLSpatialTableLayer::CreateFeatureBCP( OGRFeature *poFeature )
             if( poFDefn->GetType() == OFTInteger )
             {
                 /* int */
-                if (!poFeature->IsFieldSet( iField ))
+                if (!poFeature->IsFieldSetAndNotNull( iField ))
                     papstBindBuffer[iCol]->Integer.iIndicator = SQL_NULL_DATA;
                 else
                 {
@@ -1632,7 +1622,7 @@ OGRErr OGRMSSQLSpatialTableLayer::CreateFeatureBCP( OGRFeature *poFeature )
             else if( poFDefn->GetType() == OFTInteger64 )
             {
                 /* bigint */
-                if (!poFeature->IsFieldSet( iField ))
+                if (!poFeature->IsFieldSetAndNotNull( iField ))
                 {
                     papstBindBuffer[iCol]->VarChar.nSize = SQL_NULL_DATA;
                     /* set NULL */
@@ -1651,7 +1641,7 @@ OGRErr OGRMSSQLSpatialTableLayer::CreateFeatureBCP( OGRFeature *poFeature )
             else if( poFDefn->GetType() == OFTReal )
             {
                 /* float */
-                if (!poFeature->IsFieldSet( iField ))
+                if (!poFeature->IsFieldSetAndNotNull( iField ))
                 {
                     papstBindBuffer[iCol]->VarChar.nSize = SQL_NULL_DATA;
                     /* set NULL */
@@ -1672,7 +1662,7 @@ OGRErr OGRMSSQLSpatialTableLayer::CreateFeatureBCP( OGRFeature *poFeature )
                 /* nvarchar */
                 if (poFDefn->GetWidth() != 0)
                 {
-                    if (!poFeature->IsFieldSet( iField ))
+                    if (!poFeature->IsFieldSetAndNotNull( iField ))
                     {
                         papstBindBuffer[iCol]->VarChar.nSize = SQL_NULL_DATA;
                         if (Failed2( bcp_collen( hDBCBCP, SQL_NULL_DATA, iCol + 1) ))
@@ -1694,7 +1684,7 @@ OGRErr OGRMSSQLSpatialTableLayer::CreateFeatureBCP( OGRFeature *poFeature )
             else if( poFDefn->GetType() == OFTDate )
             {
                 /* date */
-                if (!poFeature->IsFieldSet( iField ))
+                if (!poFeature->IsFieldSetAndNotNull( iField ))
                 {
                     papstBindBuffer[iCol]->VarChar.nSize = SQL_NULL_DATA;
                     /* set NULL */
@@ -1723,7 +1713,7 @@ OGRErr OGRMSSQLSpatialTableLayer::CreateFeatureBCP( OGRFeature *poFeature )
             else if( poFDefn->GetType() == OFTTime )
             {
                 /* time(7) */
-                if (!poFeature->IsFieldSet( iField ))
+                if (!poFeature->IsFieldSetAndNotNull( iField ))
                 {
                     papstBindBuffer[iCol]->VarChar.nSize = SQL_NULL_DATA;
                     /* set NULL */
@@ -1752,7 +1742,7 @@ OGRErr OGRMSSQLSpatialTableLayer::CreateFeatureBCP( OGRFeature *poFeature )
             else if( poFDefn->GetType() == OFTDateTime )
             {
                 /* datetime */
-                if (!poFeature->IsFieldSet( iField ))
+                if (!poFeature->IsFieldSetAndNotNull( iField ))
                 {
                     papstBindBuffer[iCol]->VarChar.nSize = SQL_NULL_DATA;
                     /* set NULL */
@@ -1781,7 +1771,7 @@ OGRErr OGRMSSQLSpatialTableLayer::CreateFeatureBCP( OGRFeature *poFeature )
             }
             else if( poFDefn->GetType() == OFTBinary )
             {
-                if (!poFeature->IsFieldSet( iField ))
+                if (!poFeature->IsFieldSetAndNotNull( iField ))
                 {
                     papstBindBuffer[iCol]->RawData.nSize = SQL_NULL_DATA;
                     /* set NULL */
@@ -1857,7 +1847,7 @@ OGRErr OGRMSSQLSpatialTableLayer::CreateFeatureBCP( OGRFeature *poFeature )
             {
                 if (poFDefn->GetWidth() == 0)
                 {
-                    if (poFeature->IsFieldSet( iField ))
+                    if (poFeature->IsFieldSetAndNotNull( iField ))
                     {
                         papstBindBuffer[iCol]->VarChar.nSize = CPLStrlenUTF8(poFeature->GetFieldAsString(iField)) * 2;
                         if (papstBindBuffer[iCol]->VarChar.nSize > 0)
@@ -2023,7 +2013,7 @@ OGRErr OGRMSSQLSpatialTableLayer::ICreateFeature( OGRFeature *poFeature )
     int i;
     for( i = 0; i < nFieldCount; i++ )
     {
-        if( !poFeature->IsFieldSet( i ) )
+        if( !poFeature->IsFieldSetAndNotNull( i ) )
             continue;
 
         if (bNeedComma)
@@ -2190,7 +2180,7 @@ OGRErr OGRMSSQLSpatialTableLayer::ICreateFeature( OGRFeature *poFeature )
 
         for( i = 0; i < nFieldCount; i++ )
         {
-            if( !poFeature->IsFieldSet( i ) )
+            if( !poFeature->IsFieldSetAndNotNull( i ) )
                 continue;
 
             if (bNeedComma)

@@ -103,6 +103,8 @@ int OGRMSSQLSpatialDataSource::TestCapability( const char * pszCap )
 #endif
     if( EQUAL(pszCap,ODsCCreateLayer) || EQUAL(pszCap,ODsCDeleteLayer) )
         return TRUE;
+    if( EQUAL(pszCap,ODsCRandomLayerWrite) )
+        return TRUE;
     else
         return FALSE;
 }
@@ -508,7 +510,6 @@ OGRLayer * OGRMSSQLSpatialDataSource::ICreateLayer( const char * pszLayerName,
 
     papoLayers[nLayers++] = poLayer;
 
-
     return poLayer;
 }
 
@@ -545,7 +546,6 @@ int OGRMSSQLSpatialDataSource::OpenTable( const char *pszSchemaName, const char 
     return TRUE;
 }
 
-
 /************************************************************************/
 /*                       GetLayerCount()                                */
 /************************************************************************/
@@ -581,7 +581,6 @@ int OGRMSSQLSpatialDataSource::ParseValue(char** pszValue, char* pszSource, cons
     }
     return FALSE;
 }
-
 
 /************************************************************************/
 /*                                Open()                                */
@@ -1164,7 +1163,6 @@ OGRErr OGRMSSQLSpatialDataSource::InitializeMetadataTables()
     return OGRERR_NONE;
 }
 
-
 /************************************************************************/
 /*                              FetchSRS()                              */
 /*                                                                      */
@@ -1262,6 +1260,7 @@ int OGRMSSQLSpatialDataSource::FetchSRSId( OGRSpatialReference * poSRS)
         return 0;
 
     OGRSpatialReference oSRS(*poSRS);
+    // cppcheck-suppress uselessAssignmentPtrArg
     poSRS = NULL;
 
     pszAuthorityName = oSRS.GetAuthorityName(NULL);

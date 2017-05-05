@@ -319,7 +319,6 @@ void OGRPLScenesV1Layer::EstablishLayerDefn()
         return;
     }
 
-
     // Look for parameters (fields that can be queried)
     json_object* poParameters = json_ex_get_object_by_path(poItemsDef, "get.parameters");
     if( poParameters == NULL || json_object_get_type(poParameters) != json_type_array )
@@ -357,7 +356,6 @@ void OGRPLScenesV1Layer::EstablishLayerDefn()
             }
         }
     }
-
 
 /* Parse:
     "Item": {
@@ -539,7 +537,7 @@ void OGRPLScenesV1Layer::EstablishLayerDefn()
         }
     }
 
-    if( m_poDS->DoesFollowLinks() && m_aoAssetCategories.size() )
+    if( m_poDS->DoesFollowLinks() && !m_aoAssetCategories.empty() )
     {
         ParseAssetProperties( poSpec, osPropertiesDesc );
     }
@@ -547,14 +545,12 @@ void OGRPLScenesV1Layer::EstablishLayerDefn()
     osPropertiesDesc += "}";
 
     // Prettify description
-    json_tokener* jstok = json_tokener_new();
-    json_object* poPropertiesDesc = json_tokener_parse_ex(jstok, osPropertiesDesc, -1);
-    if( jstok->err == json_tokener_success)
+    json_object* poPropertiesDesc = NULL;
+    if( OGRJSonParse(osPropertiesDesc, &poPropertiesDesc, false) )
     {
         osPropertiesDesc = json_object_to_json_string_ext( poPropertiesDesc, JSON_C_TO_STRING_PRETTY );
         json_object_put(poPropertiesDesc);
     }
-    json_tokener_free(jstok);
 
     SetMetadataItem("FIELDS_DESCRIPTION", osPropertiesDesc.c_str());
 
@@ -976,7 +972,7 @@ bool OGRPLScenesV1Layer::GetNextPage()
     m_poFeatures = NULL;
     m_nFeatureIdx = 0;
 
-    if( m_osRequestURL.size() == 0 )
+    if( m_osRequestURL.empty() )
     {
         m_bEOF = true;
         return false;
@@ -1058,7 +1054,7 @@ void OGRPLScenesV1Layer::ResetReading()
 CPLString OGRPLScenesV1Layer::BuildRequestURL()
 {
     const CPLString& osFilter = m_poDS->GetFilter();
-    if( osFilter.size() && osFilter[0] == '{' && osFilter[osFilter.size()-1] == '}' )
+    if( !osFilter.empty() && osFilter[0] == '{' && osFilter.back() == '}' )
     {
         // Quick search
         return m_poDS->GetBaseURL() + GetName() + "/quick-search";
@@ -1066,7 +1062,7 @@ CPLString OGRPLScenesV1Layer::BuildRequestURL()
 
     CPLString osURL = m_osItemsURL;
     osURL += CPLSPrintf("?_page_size=%d", m_nPageSize);
-    if( osFilter.size() )
+    if( !osFilter.empty() )
         osURL += "&" + osFilter;
 
     if( m_poFilterGeom != NULL )
@@ -1093,7 +1089,7 @@ CPLString OGRPLScenesV1Layer::BuildRequestURL()
         }
     }
 
-    if( m_osFilterURLPart.size() )
+    if( !m_osFilterURLPart.empty() )
     {
         if( m_osFilterURLPart[0] == '&' )
             osURL += m_osFilterURLPart;
@@ -1228,7 +1224,7 @@ struct OGRPLScenesV1LayerExprComparator
 {
     OGRPLScenesV1Layer* m_poLayer;
 
-    OGRPLScenesV1LayerExprComparator(OGRPLScenesV1Layer* poLayer) :
+    explicit OGRPLScenesV1LayerExprComparator(OGRPLScenesV1Layer* poLayer) :
                 m_poLayer(poLayer) {}
 
     bool operator() (const swq_expr_node* poNode1,
@@ -1300,7 +1296,7 @@ CPLString OGRPLScenesV1Layer::BuildFilter(swq_expr_node* poNode)
                 continue;
             }
 
-            if( osFilter.size() )
+            if( !osFilter.empty() )
                 osFilter += "&";
 
             osFilter += osJSonName;
@@ -1314,7 +1310,7 @@ CPLString OGRPLScenesV1Layer::BuildFilter(swq_expr_node* poNode)
         }
         else if( oVector[i]->nOperation == SWQ_EQ )
         {
-            if( osFilter.size() )
+            if( !osFilter.empty() )
                 osFilter += "&";
 
             osFilter += osJSonName;
@@ -1343,7 +1339,7 @@ CPLString OGRPLScenesV1Layer::BuildFilter(swq_expr_node* poNode)
         }
         else if( oVector[i]->nOperation == SWQ_GT || oVector[i]->nOperation == SWQ_GE )
         {
-            if( osFilter.size() )
+            if( !osFilter.empty() )
                 osFilter += "&";
 
             osFilter += osJSonName;
@@ -1353,7 +1349,7 @@ CPLString OGRPLScenesV1Layer::BuildFilter(swq_expr_node* poNode)
         }
         else if( oVector[i]->nOperation == SWQ_LT || oVector[i]->nOperation == SWQ_LE )
         {
-            if( osFilter.size() )
+            if( !osFilter.empty() )
                 osFilter += "&";
 
             osFilter += osJSonName;
@@ -1370,7 +1366,7 @@ CPLString OGRPLScenesV1Layer::BuildFilter(swq_expr_node* poNode)
         }
     }
 
-    if( osFilter.size() == 0 && !m_bFilterMustBeClientSideEvaluated )
+    if( osFilter.empty() && !m_bFilterMustBeClientSideEvaluated )
     {
         m_bFilterMustBeClientSideEvaluated = true;
         CPLDebug("PLSCENES",
@@ -1417,7 +1413,7 @@ OGRErr OGRPLScenesV1Layer::SetAttributeFilter( const char *pszQuery )
         else
         {
             CPLString osFilter = BuildFilter(poNode);
-            if( osFilter.size() )
+            if( !osFilter.empty() )
             {
                 m_osFilterURLPart = "&";
                 m_osFilterURLPart += osFilter;
@@ -1543,7 +1539,7 @@ OGRFeature* OGRPLScenesV1Layer::GetNextRawFeature()
         if( oIter != m_oMapPrefixedJSonFieldNameToFieldIdx.end() )
         {
             const int iField = oIter->second;
-            if( poFeature->IsFieldSet( iField ) )
+            if( poFeature->IsFieldSetAndNotNull( iField ) )
             {
                 const char* pszAssetURL = poFeature->GetFieldAsString( iField );
                 poAssets = m_poDS->RunRequest(pszAssetURL);

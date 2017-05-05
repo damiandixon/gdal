@@ -36,6 +36,7 @@
 
 #include "PublicDecompWT_headers.h"
 
+#include <memory>
 #include <vector>
 
 #if _MSC_VER > 1000
@@ -94,7 +95,7 @@ MSGDataset::~MSGDataset()
 const char *MSGDataset::GetProjectionRef()
 
 {
-  return ( pszProjection );
+  return pszProjection;
 }
 
 /************************************************************************/
@@ -107,7 +108,6 @@ CPLErr MSGDataset::SetProjection( const char * pszNewProjection )
     pszProjection = CPLStrdup( pszNewProjection );
 
     return CE_None;
-
 }
 
 /************************************************************************/
@@ -118,7 +118,7 @@ CPLErr MSGDataset::GetGeoTransform( double * padfTransform )
 
 {
     memcpy( padfTransform,  adfGeoTransform, sizeof(double) * 6 );
-    return( CE_None );
+    return CE_None;
 }
 
 /************************************************************************/
@@ -190,7 +190,6 @@ GDALDataset *MSGDataset::Open( GDALOpenInfo * poOpenInfo )
                   l_sErr.c_str() );
         return FALSE;
     }
-
 
 // We're confident the string is formatted as an MSG command_line
 
@@ -326,7 +325,7 @@ GDALDataset *MSGDataset::Open( GDALOpenInfo * poOpenInfo )
     metadataValue.Printf("%d", poDS->iCurrentSatellite);
     poDS->SetMetadataItem("satellite_number", metadataValue.c_str(), metadataDomain);
 
-    return( poDS );
+    return poDS;
 }
 
 /************************************************************************/
@@ -439,7 +438,6 @@ MSGRasterBand::MSGRasterBand( MSGDataset *poDSIn, int nBandIn )
 
       // nBlockYSize : default
       // fScanNorth : default
-
     }
 /* -------------------------------------------------------------------- */
 /*      For the HRV band, read the prologue for shift and splitline.    */
@@ -558,18 +556,17 @@ CPLErr MSGRasterBand::IReadBlock( int /*nBlockXOff*/, int nBlockYOff,
             // iShift > 0 means upper image moves to the right
           }
 
-          std::auto_ptr< unsigned char > ibuf( new unsigned char[nb_ibytes]);
-
-          if (ibuf.get() == 0)
+          unsigned char* ibuf = new (std::nothrow) unsigned char[nb_ibytes];
+          if (ibuf == NULL )
           {
              CPLError( CE_Failure, CPLE_AppDefined,
                   "Not enough memory to perform wavelet decompression\n");
             return CE_Failure;
           }
 
-          i_file.read( (char *)(ibuf.get()), nb_ibytes);
+          i_file.read( (char *)ibuf, nb_ibytes);
 
-          Util::CDataFieldCompressedImage  img_compressed(ibuf.release(),
+          Util::CDataFieldCompressedImage  img_compressed(ibuf,
                                   nb_ibytes*8,
                                   (unsigned char)chunk_bpp,
                                   chunk_width,
@@ -734,6 +731,8 @@ double MSGRasterBand::rRadiometricCorrection(unsigned int iDN, int iChannel, int
 
                         double cc2 = rC2 * poGDS->rVc[iIndex];
                         double cc1 = rC1 * pow(poGDS->rVc[iIndex], 3) / rRadiance;
+                        // cppcheck suggests using log1p() but not sure how portable this would be
+                        // cppcheck-suppress unpreciseMathCall
                         double rTemperature = ((cc2 / log(cc1 + 1)) - poGDS->rB[iIndex]) / poGDS->rA[iIndex];
                         return rTemperature;
                 }

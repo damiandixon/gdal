@@ -45,8 +45,7 @@ OGRSDTSLayer::OGRSDTSLayer( SDTSTransfer * poTransferIn, int iLayerIn,
     poTransfer(poTransferIn),
     iLayer(iLayerIn),
     poReader(poTransferIn->GetLayerIndexedReader( iLayerIn )),
-    poDS(poDSIn),
-    bPolygonsBuilt(FALSE)
+    poDS(poDSIn)
 {
 /* -------------------------------------------------------------------- */
 /*      Define the feature.                                             */
@@ -177,7 +176,6 @@ OGRSDTSLayer::OGRSDTSLayer( SDTSTransfer * poTransferIn, int iLayerIn,
             }
 
             CPLFree( pszFieldName );
-
         } /* next iSF (subfield) */
     } /* next iTable */
     CSLDestroy( papszATIDRefs );
@@ -405,7 +403,6 @@ OGRFeature * OGRSDTSLayer::GetNextUnfilteredFeature()
     return poFeature;
 }
 
-
 /************************************************************************/
 /*                           GetNextFeature()                           */
 /************************************************************************/
@@ -441,22 +438,8 @@ OGRFeature *OGRSDTSLayer::GetNextFeature()
 /*                           TestCapability()                           */
 /************************************************************************/
 
-int OGRSDTSLayer::TestCapability( const char * pszCap )
+int OGRSDTSLayer::TestCapability( const char * /* pszCap */ )
 
 {
-    if( EQUAL(pszCap,OLCRandomRead) )
-        return FALSE;
-
-    else if( EQUAL(pszCap,OLCSequentialWrite)
-             || EQUAL(pszCap,OLCRandomWrite) )
-        return FALSE;
-
-    else if( EQUAL(pszCap,OLCFastFeatureCount) )
-        return FALSE;
-
-    else if( EQUAL(pszCap,OLCFastSpatialFilter) )
-        return FALSE;
-
-    else
-        return FALSE;
+    return FALSE;
 }

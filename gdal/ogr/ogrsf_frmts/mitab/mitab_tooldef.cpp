@@ -27,33 +27,17 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
- **********************************************************************
- *
- * $Log: mitab_tooldef.cpp,v $
- * Revision 1.7  2010-07-07 19:00:15  aboudreault
- * Cleanup Win32 Compile Warnings (GDAL bug #2930)
- *
- * Revision 1.6  2004-06-30 20:29:04  dmorissette
- * Fixed refs to old address danmo@videotron.ca
- *
- * Revision 1.5  2000/11/15 04:13:50  daniel
- * Fixed writing of TABMAPToolBlock to allocate a new block when full
- *
- * Revision 1.4  2000/02/28 17:06:54  daniel
- * Support pen width in points and V450 check
- *
- * Revision 1.3  2000/01/15 22:30:45  daniel
- * Switch to MIT/X-Consortium OpenSource license
- *
- * Revision 1.2  1999/10/18 15:39:21  daniel
- * Handle case of "no pen" or "no brush" in AddPen/BrushRef()
- *
- * Revision 1.1  1999/09/26 14:59:37  daniel
- * Implemented write support
- *
  **********************************************************************/
 
+#include "cpl_port.h"
 #include "mitab.h"
+
+#include <cstddef>
+#include <algorithm>
+
+#include "cpl_conv.h"
+#include "cpl_error.h"
+#include "mitab_priv.h"
 #include "mitab_utils.h"
 
 CPL_CVSID("$Id$");
@@ -105,7 +89,6 @@ TABToolDefTable::~TABToolDefTable()
         CPLFree(m_papsSymbol[i]);
     CPLFree(m_papsSymbol);
 }
-
 
 /**********************************************************************
  *                   TABToolDefTable::ReadAllToolDefs()
@@ -242,7 +225,6 @@ int TABToolDefTable::ReadAllToolDefs( TABMAPToolBlock *poBlock )
     return nStatus;
 }
 
-
 /**********************************************************************
  *                   TABToolDefTable::WriteAllToolDefs()
  *
@@ -272,7 +254,13 @@ int TABToolDefTable::WriteAllToolDefs( TABMAPToolBlock *poBlock )
                 byPixelWidth = 8 + (GByte)(m_papsPen[i]->nPointWidth/0x100);
         }
         else
-            byPixelWidth = MIN(MAX(m_papsPen[i]->nPixelWidth, 1), 7);
+        {
+            const GByte nMinWidth = 1;
+            const GByte nMaxWidth = 7;
+            byPixelWidth =
+                std::min(
+                    std::max(m_papsPen[i]->nPixelWidth, nMinWidth), nMaxWidth);
+        }
 
         poBlock->CheckAvailableSpace(TABMAP_TOOL_PEN);
         poBlock->WriteByte(TABMAP_TOOL_PEN);  // Def Type = Pen
@@ -366,8 +354,6 @@ int TABToolDefTable::WriteAllToolDefs( TABMAPToolBlock *poBlock )
 
     return nStatus;
 }
-
-
 
 /**********************************************************************
  *                   TABToolDefTable::GetNumPen()
@@ -653,7 +639,6 @@ TABSymbolDef *TABToolDefTable::GetSymbolDefRef(int nIndex)
     return NULL;
 }
 
-
 /**********************************************************************
  *                   TABToolDefTable::AddSymbolDefRef()
  *
@@ -710,7 +695,6 @@ int TABToolDefTable::AddSymbolDefRef(TABSymbolDef *poNewSymbolDef)
     return nNewSymbolIndex;
 }
 
-
 /**********************************************************************
  *                   TABToolDefTable::GetMinVersionNumber()
  *
@@ -731,7 +715,7 @@ int     TABToolDefTable::GetMinVersionNumber()
     {
         if (m_papsPen[i]->nPointWidth > 0 )
         {
-            nVersion = MAX(nVersion, 450);  // Raise version to 450
+            nVersion = std::max(nVersion, 450);  // Raise version to 450
         }
     }
 

@@ -62,8 +62,8 @@ class NGSGEOIDDataset : public GDALPamDataset
                  NGSGEOIDDataset();
     virtual     ~NGSGEOIDDataset();
 
-    virtual CPLErr GetGeoTransform( double * );
-    virtual const char* GetProjectionRef();
+    virtual CPLErr GetGeoTransform( double * ) override;
+    virtual const char* GetProjectionRef() override;
 
     static GDALDataset *Open( GDALOpenInfo * );
     static int          Identify( GDALOpenInfo * );
@@ -82,10 +82,9 @@ class NGSGEOIDRasterBand : public GDALPamRasterBand
   public:
                 explicit NGSGEOIDRasterBand( NGSGEOIDDataset * );
 
-    virtual CPLErr IReadBlock( int, int, void * );
-    virtual const char* GetUnitType() { return "m"; }
+    virtual CPLErr IReadBlock( int, int, void * ) override;
+    virtual const char* GetUnitType() override { return "m"; }
 };
-
 
 /************************************************************************/
 /*                        NGSGEOIDRasterBand()                          */
@@ -318,7 +317,6 @@ int NGSGEOIDDataset::Identify( GDALOpenInfo * poOpenInfo )
     return TRUE;
 }
 
-
 /************************************************************************/
 /*                                Open()                                */
 /************************************************************************/
@@ -372,7 +370,7 @@ GDALDataset *NGSGEOIDDataset::Open( GDALOpenInfo * poOpenInfo )
 /*      Support overviews.                                              */
 /* -------------------------------------------------------------------- */
     poDS->oOvManager.Initialize( poDS, poOpenInfo->pszFilename );
-    return( poDS );
+    return poDS;
 }
 
 /************************************************************************/
@@ -384,7 +382,7 @@ CPLErr NGSGEOIDDataset::GetGeoTransform( double * padfTransform )
 {
     memcpy(padfTransform, adfGeoTransform, 6 * sizeof(double));
 
-    return( CE_None );
+    return CE_None;
 }
 
 /************************************************************************/

@@ -28,7 +28,6 @@
  * DEALINGS IN THE SOFTWARE.
  ****************************************************************************/
 
-
 #include <string>
 #include "ogr_mysql.h"
 
@@ -146,7 +145,7 @@ int OGRMySQLDataSource::Open( const char * pszNewName, char** papszOpenOptionsIn
         const char* pszVal = CSLFetchNameValue(papszOpenOptionsIn, apszOpenOptions[i]);
         if( pszVal )
         {
-            if( osNewName[osNewName.size()-1] != ':' )
+            if( osNewName.back() != ':' )
                 osNewName += ",";
             if( i > 0 )
             {
@@ -360,6 +359,8 @@ int OGRMySQLDataSource::TestCapability( const char * pszCap )
         return TRUE;
     if( EQUAL(pszCap, ODsCDeleteLayer))
         return TRUE;
+    if( EQUAL(pszCap,ODsCRandomLayerWrite) )
+        return TRUE;
     else
         return FALSE;
 }
@@ -376,7 +377,6 @@ OGRLayer *OGRMySQLDataSource::GetLayer( int iLayer )
     else
         return papoLayers[iLayer];
 }
-
 
 /************************************************************************/
 /*                      InitializeMetadataTables()                      */
@@ -526,8 +526,6 @@ OGRSpatialReference *OGRMySQLDataSource::FetchSRS( int nId )
 
     return poSRS;
 }
-
-
 
 /************************************************************************/
 /*                             FetchSRSId()                             */
@@ -773,7 +771,6 @@ void OGRMySQLDataSource::InterruptLongResult()
     }
 }
 
-
 /************************************************************************/
 /*                            DeleteLayer()                             */
 /************************************************************************/
@@ -816,7 +813,6 @@ OGRErr OGRMySQLDataSource::DeleteLayer( int iLayer)
         ReportError( osCommand );
         return OGRERR_FAILURE;
     }
-
 }
 
 /************************************************************************/
@@ -838,12 +834,10 @@ OGRMySQLDataSource::ICreateLayer( const char * pszLayerNameIn,
     char       *pszLayerName;
     // int        nDimension = 3; // MySQL only supports 2d currently
 
-
 /* -------------------------------------------------------------------- */
 /*      Make sure there isn't an active transaction already.            */
 /* -------------------------------------------------------------------- */
     InterruptLongResult();
-
 
     if( CPLFetchBool(papszOptions, "LAUNDER", true) )
         pszLayerName = LaunderName( pszLayerNameIn );
@@ -899,6 +893,9 @@ OGRMySQLDataSource::ICreateLayer( const char * pszLayerNameIn,
     CPLDebug("MYSQL","Geometry Column Name %s.", pszGeomColumnName);
     CPLDebug("MYSQL","FID Column Name %s.", pszExpectedFIDName);
 
+    const char *pszSI = CSLFetchNameValue( papszOptions, "SPATIAL_INDEX" );
+    const bool bHasSI = ( eType != wkbNone && (pszSI == NULL || CPLTestBool(pszSI)) );
+
     if( wkbFlatten(eType) == wkbNone )
     {
         osCommand.Printf(
@@ -911,8 +908,9 @@ OGRMySQLDataSource::ICreateLayer( const char * pszLayerNameIn,
         osCommand.Printf(
                  "CREATE TABLE `%s` ( "
                  "   %s %s UNIQUE NOT NULL AUTO_INCREMENT, "
-                 "   %s GEOMETRY NOT NULL )",
-                 pszLayerName, pszExpectedFIDName, pszFIDType, pszGeomColumnName );
+                 "   %s GEOMETRY %s)",
+                 pszLayerName, pszExpectedFIDName, pszFIDType, pszGeomColumnName,
+                 bHasSI ? "NOT NULL" : "");
     }
 
     if( CSLFetchNameValue( papszOptions, "ENGINE" ) != NULL )
@@ -1033,9 +1031,7 @@ OGRMySQLDataSource::ICreateLayer( const char * pszLayerNameIn,
 /*      We're doing this before we add geometry and record to the table */
 /*      so this may not be exactly the best way to do it.               */
 /* -------------------------------------------------------------------- */
-    const char *pszSI = CSLFetchNameValue( papszOptions, "SPATIAL_INDEX" );
-
-    if( eType != wkbNone && (pszSI == NULL || CPLTestBool(pszSI)) )
+    if( bHasSI )
     {
         osCommand.Printf(
                  "ALTER TABLE `%s` ADD SPATIAL INDEX(`%s`) ",

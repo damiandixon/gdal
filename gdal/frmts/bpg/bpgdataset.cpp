@@ -37,6 +37,7 @@
 // g++ -fPIC -g -Wall -Iport -Igcore -Iogr -Iogr/ogrsf_frmts -I/home/even/libbpg-0.9.4 frmts/bpg/bpgdataset.cpp -shared -o gdal_BPG.so -L. -lgdal -L/home/even/libbpg-0.9.4/ -lbpg
 
 CPL_C_START
+void CPL_DLL GDALRegister_BPG();
 #include "libbpg.h"
 CPL_C_END
 
@@ -82,8 +83,8 @@ class BPGRasterBand : public GDALPamRasterBand
 
                    BPGRasterBand( BPGDataset *, int nbits );
 
-    virtual CPLErr IReadBlock( int, int, void * );
-    virtual GDALColorInterp GetColorInterpretation();
+    virtual CPLErr IReadBlock( int, int, void * ) override;
+    virtual GDALColorInterp GetColorInterpretation() override;
 };
 
 /************************************************************************/
@@ -92,7 +93,7 @@ class BPGRasterBand : public GDALPamRasterBand
 
 BPGRasterBand::BPGRasterBand( BPGDataset *poDSIn, int nbits )
 {
-    poDS = poDS;
+    poDS = poDSIn;
 
     eDataType = nbits > 8 ? GDT_UInt16 : GDT_Byte;
 
@@ -155,7 +156,6 @@ GDALColorInterp BPGRasterBand::GetColorInterpretation()
 /*                             BPGDataset                               */
 /* ==================================================================== */
 /************************************************************************/
-
 
 /************************************************************************/
 /*                            BPGDataset()                              */

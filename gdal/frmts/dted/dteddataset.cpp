@@ -32,6 +32,7 @@
 #include "gdal_pam.h"
 #include "ogr_spatialref.h"
 
+#include <cstdlib>
 #include <algorithm>
 
 CPL_CVSID("$Id$");
@@ -57,8 +58,8 @@ class DTEDDataset : public GDALPamDataset
                  DTEDDataset();
     virtual     ~DTEDDataset();
 
-    virtual const char *GetProjectionRef(void);
-    virtual CPLErr GetGeoTransform( double * );
+    virtual const char *GetProjectionRef(void) override;
+    virtual CPLErr GetGeoTransform( double * ) override;
 
     const char* GetFileName() { return pszFilename; }
     void SetFileName(const char* pszFilename);
@@ -84,14 +85,13 @@ class DTEDRasterBand : public GDALPamRasterBand
 
                 DTEDRasterBand( DTEDDataset *, int );
 
-    virtual CPLErr IReadBlock( int, int, void * );
-    virtual CPLErr IWriteBlock( int, int, void * );
+    virtual CPLErr IReadBlock( int, int, void * ) override;
+    virtual CPLErr IWriteBlock( int, int, void * ) override;
 
-    virtual double  GetNoDataValue( int *pbSuccess = NULL );
+    virtual double  GetNoDataValue( int *pbSuccess = NULL ) override;
 
-    virtual const char* GetUnitType() { return "m"; }
+    virtual const char* GetUnitType() override { return "m"; }
 };
-
 
 /************************************************************************/
 /*                           DTEDRasterBand()                            */
@@ -328,7 +328,7 @@ GDALDataset *DTEDDataset::Open( GDALOpenInfo * poOpenInfo )
                          (poOpenInfo->eAccess == GA_Update) ? "rb+" : "rb", TRUE );
 
     if( psDTED == NULL )
-        return( NULL );
+        return NULL;
 
 /* -------------------------------------------------------------------- */
 /*      Create a corresponding GDALDataset.                             */
@@ -494,7 +494,7 @@ GDALDataset *DTEDDataset::Open( GDALOpenInfo * poOpenInfo )
 /* -------------------------------------------------------------------- */
     poDS->oOvManager.Initialize( poDS, poOpenInfo->pszFilename,
                                  poOpenInfo->GetSiblingFiles() );
-    return( poDS );
+    return poDS;
 }
 
 /************************************************************************/
@@ -511,7 +511,7 @@ CPLErr DTEDDataset::GetGeoTransform( double * padfTransform )
     padfTransform[4] = 0.0;
     padfTransform[5] = psDTED->dfPixelSizeY * -1;
 
-    return( CE_None );
+    return CE_None;
 }
 
 /************************************************************************/
@@ -532,7 +532,11 @@ const char *DTEDDataset::GetProjectionRef()
     pszPrj = GetMetadataItem( "DTED_HorizontalDatum");
     if (EQUAL(pszPrj, "WGS84"))
     {
-        return( "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433],AUTHORITY[\"EPSG\",\"4326\"]]" );
+        return
+            "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\","
+            "SPHEROID[\"WGS 84\",6378137,298.257223563]],"
+            "PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433],"
+            "AUTHORITY[\"EPSG\",\"4326\"]]";
     }
     else if (EQUAL(pszPrj, "WGS72"))
     {
@@ -561,7 +565,11 @@ const char *DTEDDataset::GetProjectionRef()
                       "The DTED driver is going to consider it as WGS84.\n"
                       "No more warnings will be issued in this session about this operation.", GetFileName(), pszPrj );
         }
-        return( "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433],AUTHORITY[\"EPSG\",\"4326\"]]" );
+        return
+            "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\","
+            "SPHEROID[\"WGS 84\",6378137,298.257223563]],"
+            "PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433],"
+            "AUTHORITY[\"EPSG\",\"4326\"]]";
     }
 }
 
@@ -660,13 +668,14 @@ DTEDCreateCopy( const char * pszFilename, GDALDataset *poSrcDS,
 /*     Check horizontal source size.                                    */
 /* -------------------------------------------------------------------- */
     int expectedXSize;
-    if( ABS(nLLOriginLat) >= 80 )
+    int nReferenceLat = nLLOriginLat < 0 ? - (nLLOriginLat + 1) : nLLOriginLat;
+    if( nReferenceLat >= 80 )
         expectedXSize = (poSrcDS->GetRasterYSize() - 1) / 6 + 1;
-    else if( ABS(nLLOriginLat) >= 75 )
+    else if( nReferenceLat >= 75 )
         expectedXSize = (poSrcDS->GetRasterYSize() - 1) / 4 + 1;
-    else if( ABS(nLLOriginLat) >= 70 )
+    else if( nReferenceLat >= 70 )
         expectedXSize = (poSrcDS->GetRasterYSize() - 1) / 3 + 1;
-    else if( ABS(nLLOriginLat) >= 50 )
+    else if( nReferenceLat >= 50 )
         expectedXSize = (poSrcDS->GetRasterYSize() - 1) / 2 + 1;
     else
         expectedXSize = poSrcDS->GetRasterYSize();
@@ -785,7 +794,8 @@ DTEDCreateCopy( const char * pszFilename, GDALDataset *poSrcDS,
         if (iPartialCell < 1)
            iPartialCell=1;
     }
-    snprintf( szPartialCell, sizeof(szPartialCell), "%02d",iPartialCell);
+
+    CPLsnprintf( szPartialCell, sizeof(szPartialCell), "%02d",iPartialCell);
     DTEDSetMetadata(psDTED, DTEDMD_PARTIALCELL_DSI, szPartialCell);
 
 /* -------------------------------------------------------------------- */

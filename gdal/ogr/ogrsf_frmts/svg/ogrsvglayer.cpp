@@ -38,10 +38,17 @@ CPL_CVSID("$Id$");
 OGRSVGLayer::OGRSVGLayer( const char* pszFilename,
                           const char* pszLayerName,
                           SVGGeometryType svgGeomTypeIn,
-                          OGRSVGDataSource* poDSIn) :
+#ifndef HAVE_EXPAT
+                          CPL_UNUSED
+#endif
+                          OGRSVGDataSource* poDSIn ) :
     poFeatureDefn(NULL),
     poSRS(NULL),
-    poDS(NULL),
+#ifdef HAVE_EXPAT
+    poDS(poDSIn),
+#endif
+    osLayerName(pszLayerName),
+    svgGeomType(svgGeomTypeIn),
     nTotalFeatures(0),
     nNextFID(0),
     fpSVG(NULL),
@@ -58,8 +65,8 @@ OGRSVGLayer::OGRSVGLayer( const char* pszFilename,
     nFeatureTabIndex(0),
     depthLevel(0),
     interestingDepthLevel(0),
-    inInterestingElement(FALSE),
-    bStopParsing(FALSE)
+    inInterestingElement(false),
+    bStopParsing(false)
 #ifdef HAVE_EXPAT
         ,
     nWithoutEventCounter(0),
@@ -68,9 +75,6 @@ OGRSVGLayer::OGRSVGLayer( const char* pszFilename,
 #endif
 
 {
-    poDS = poDSIn;
-    svgGeomType = svgGeomTypeIn;
-    osLayerName = pszLayerName;
     SetDescription( pszLayerName );
 
     poSRS = new OGRSpatialReference("PROJCS[\"WGS 84 / Pseudo-Mercator\","
@@ -195,7 +199,7 @@ void OGRSVGLayer::ResetReading()
 
     depthLevel = 0;
     interestingDepthLevel = 0;
-    inInterestingElement = FALSE;
+    inInterestingElement = false;
 }
 
 #ifdef HAVE_EXPAT
@@ -227,7 +231,7 @@ static void OGRSVGParseD(OGRLineString* poLS, const char* pszD)
     const char* pszIter = pszD;
     int iNumber = 0;
     double dfPrevNumber = 0.0;
-    int bRelativeLineto = FALSE;
+    bool bRelativeLineto = false;
     double dfX = 0.0;
     double dfY = 0.0;
     int nPointCount = 0;
@@ -245,7 +249,7 @@ static void OGRSVGParseD(OGRLineString* poLS, const char* pszD)
         }
         else if (ch == 'L')
         {
-            bRelativeLineto = FALSE;
+            bRelativeLineto = false;
         }
         else if (ch == 'l')
         {
@@ -254,7 +258,7 @@ static void OGRSVGParseD(OGRLineString* poLS, const char* pszD)
                 CPLDebug("SVG", "Relative lineto at the beginning of the line");
                 return;
             }
-            bRelativeLineto = TRUE;
+            bRelativeLineto = true;
         }
         else if (ch == 'z' || ch == 'Z')
         {
@@ -278,10 +282,10 @@ static void OGRSVGParseD(OGRLineString* poLS, const char* pszD)
                 szBuffer[iBuffer] = 0;
                 if (iNumber == 1)
                 {
-                    /* Cloudmade --> negate y */
-                    double dfNumber = -CPLAtof(szBuffer);
+                    // Cloudmade --> negate y.
+                    const double dfNumber = -CPLAtof(szBuffer);
 
-                    if (bRelativeLineto)
+                    if( bRelativeLineto )
                     {
                         dfX += dfPrevNumber;
                         dfY += dfNumber;
@@ -316,7 +320,7 @@ static void OGRSVGParseD(OGRLineString* poLS, const char* pszD)
 
 void OGRSVGLayer::startElementCbk(const char *pszName, const char **ppszAttr)
 {
-    if (bStopParsing) return;
+    if( bStopParsing ) return;
 
     nWithoutEventCounter = 0;
 
@@ -345,7 +349,7 @@ void OGRSVGLayer::startElementCbk(const char *pszName, const char **ppszAttr)
         if (bHasFoundX && bHasFoundY)
         {
             interestingDepthLevel = depthLevel;
-            inInterestingElement = TRUE;
+            inInterestingElement = true;
 
             if (poFeature)
                 delete poFeature;
@@ -374,7 +378,7 @@ void OGRSVGLayer::startElementCbk(const char *pszName, const char **ppszAttr)
         if (pszD)
         {
             interestingDepthLevel = depthLevel;
-            inInterestingElement = TRUE;
+            inInterestingElement = true;
 
             if (poFeature)
                 delete poFeature;
@@ -404,7 +408,7 @@ void OGRSVGLayer::startElementCbk(const char *pszName, const char **ppszAttr)
         if (pszD)
         {
             interestingDepthLevel = depthLevel;
-            inInterestingElement = TRUE;
+            inInterestingElement = true;
 
             if (poFeature)
                 delete poFeature;
@@ -420,9 +424,9 @@ void OGRSVGLayer::startElementCbk(const char *pszName, const char **ppszAttr)
             poFeature->SetGeometryDirectly( poPolygon );
         }
     }
-    else if (inInterestingElement &&
+    else if( inInterestingElement &&
              depthLevel == interestingDepthLevel + 1 &&
-             STARTS_WITH(pszName, "cm:"))
+             STARTS_WITH(pszName, "cm:") )
     {
         iCurrentField = poFeatureDefn->GetFieldIndex(pszName + 3);
     }
@@ -436,17 +440,17 @@ void OGRSVGLayer::startElementCbk(const char *pszName, const char **ppszAttr)
 
 void OGRSVGLayer::endElementCbk(CPL_UNUSED const char *pszName)
 {
-    if (bStopParsing) return;
+    if( bStopParsing ) return;
 
     nWithoutEventCounter = 0;
 
     depthLevel--;
 
-    if (inInterestingElement)
+    if( inInterestingElement )
     {
         if (depthLevel == interestingDepthLevel)
         {
-            inInterestingElement = FALSE;
+            inInterestingElement = false;
 
             if( (m_poFilterGeom == NULL
                     || FilterGeometry( poFeature->GetGeometryRef() ) )
@@ -487,7 +491,7 @@ void OGRSVGLayer::endElementCbk(CPL_UNUSED const char *pszName)
 
 void OGRSVGLayer::dataHandlerCbk(const char *data, int nLen)
 {
-    if (bStopParsing) return;
+    if( bStopParsing ) return;
 
     nDataHandlerCounter ++;
     if (nDataHandlerCounter >= BUFSIZ)
@@ -495,7 +499,7 @@ void OGRSVGLayer::dataHandlerCbk(const char *data, int nLen)
         CPLError(CE_Failure, CPLE_AppDefined,
                  "File probably corrupted (million laugh pattern)");
         XML_StopParser(oParser, XML_FALSE);
-        bStopParsing = TRUE;
+        bStopParsing = true;
         return;
     }
 
@@ -508,7 +512,7 @@ void OGRSVGLayer::dataHandlerCbk(const char *data, int nLen)
         if (pszNewSubElementValue == NULL)
         {
             XML_StopParser(oParser, XML_FALSE);
-            bStopParsing = TRUE;
+            bStopParsing = true;
             return;
         }
         pszSubElementValue = pszNewSubElementValue;
@@ -519,7 +523,7 @@ void OGRSVGLayer::dataHandlerCbk(const char *data, int nLen)
             CPLError(CE_Failure, CPLE_AppDefined,
                      "Too much data inside one element. File probably corrupted");
             XML_StopParser(oParser, XML_FALSE);
-            bStopParsing = TRUE;
+            bStopParsing = true;
         }
     }
 }
@@ -536,7 +540,7 @@ OGRFeature *OGRSVGLayer::GetNextFeature()
     if (fpSVG == NULL)
         return NULL;
 
-    if (bStopParsing)
+    if( bStopParsing )
         return NULL;
 
 #ifdef HAVE_EXPAT
@@ -571,18 +575,18 @@ OGRFeature *OGRSVGLayer::GetNextFeature()
                      XML_ErrorString(XML_GetErrorCode(oParser)),
                      (int)XML_GetCurrentLineNumber(oParser),
                      (int)XML_GetCurrentColumnNumber(oParser));
-            bStopParsing = TRUE;
+            bStopParsing = true;
             break;
         }
         nWithoutEventCounter ++;
-    } while (!nDone && nFeatureTabLength == 0 && !bStopParsing &&
-             nWithoutEventCounter < 1000);
+    } while( !nDone && nFeatureTabLength == 0 && !bStopParsing &&
+             nWithoutEventCounter < 1000 );
 
     if (nWithoutEventCounter == 1000)
     {
         CPLError(CE_Failure, CPLE_AppDefined,
                  "Too much data inside one element. File probably corrupted");
-        bStopParsing = TRUE;
+        bStopParsing = true;
     }
 
     return (nFeatureTabLength) ? ppoFeatureTab[nFeatureTabIndex++] : NULL;
@@ -609,7 +613,6 @@ int OGRSVGLayer::TestCapability( const char * pszCap )
         return FALSE;
 }
 
-
 /************************************************************************/
 /*                       LoadSchema()                         */
 /************************************************************************/
@@ -633,7 +636,6 @@ static void XMLCALL dataHandlerLoadSchemaCbk(void *pUserData,
 {
     ((OGRSVGLayer*)pUserData)->dataHandlerLoadSchemaCbk(data, nLen);
 }
-
 
 /** This function parses the whole file to build the schema */
 void OGRSVGLayer::LoadSchema()
@@ -660,10 +662,10 @@ void OGRSVGLayer::LoadSchema()
 
     VSIFSeekL( fpSVG, 0, SEEK_SET );
 
-    inInterestingElement = FALSE;
+    inInterestingElement = false;
     depthLevel = 0;
     nWithoutEventCounter = 0;
-    bStopParsing = FALSE;
+    bStopParsing = false;
 
     char aBuf[BUFSIZ];
     int nDone = 0;
@@ -680,17 +682,17 @@ void OGRSVGLayer::LoadSchema()
                      XML_ErrorString(XML_GetErrorCode(oSchemaParser)),
                      (int)XML_GetCurrentLineNumber(oSchemaParser),
                      (int)XML_GetCurrentColumnNumber(oSchemaParser));
-            bStopParsing = TRUE;
+            bStopParsing = true;
             break;
         }
         nWithoutEventCounter ++;
-    } while (!nDone && !bStopParsing && nWithoutEventCounter < 1000);
+    } while( !nDone && !bStopParsing && nWithoutEventCounter < 1000 );
 
     if (nWithoutEventCounter == 1000)
     {
         CPLError(CE_Failure, CPLE_AppDefined,
                  "Too much data inside one element. File probably corrupted");
-        bStopParsing = TRUE;
+        bStopParsing = true;
     }
 
     XML_ParserFree(oSchemaParser);
@@ -699,7 +701,6 @@ void OGRSVGLayer::LoadSchema()
     VSIFSeekL( fpSVG, 0, SEEK_SET );
 }
 
-
 /************************************************************************/
 /*                  startElementLoadSchemaCbk()                         */
 /************************************************************************/
@@ -707,7 +708,7 @@ void OGRSVGLayer::LoadSchema()
 void OGRSVGLayer::startElementLoadSchemaCbk(const char *pszName,
                                             const char **ppszAttr)
 {
-    if (bStopParsing) return;
+    if( bStopParsing ) return;
 
     nWithoutEventCounter = 0;
 
@@ -716,7 +717,7 @@ void OGRSVGLayer::startElementLoadSchemaCbk(const char *pszName,
     {
         poCurLayer = (OGRSVGLayer*)poDS->GetLayer(0);
         poCurLayer->nTotalFeatures ++;
-        inInterestingElement = TRUE;
+        inInterestingElement = true;
         interestingDepthLevel = depthLevel;
     }
     else if (strcmp(pszName, "path") == 0 &&
@@ -724,7 +725,7 @@ void OGRSVGLayer::startElementLoadSchemaCbk(const char *pszName,
     {
         poCurLayer = (OGRSVGLayer*)poDS->GetLayer(1);
         poCurLayer->nTotalFeatures ++;
-        inInterestingElement = TRUE;
+        inInterestingElement = true;
         interestingDepthLevel = depthLevel;
     }
     else if (strcmp(pszName, "path") == 0 &&
@@ -732,10 +733,10 @@ void OGRSVGLayer::startElementLoadSchemaCbk(const char *pszName,
     {
         poCurLayer = (OGRSVGLayer*)poDS->GetLayer(2);
         poCurLayer->nTotalFeatures ++;
-        inInterestingElement = TRUE;
+        inInterestingElement = true;
         interestingDepthLevel = depthLevel;
     }
-    else if (inInterestingElement)
+    else if( inInterestingElement )
     {
         if (depthLevel == interestingDepthLevel + 1 &&
             STARTS_WITH(pszName, "cm:"))
@@ -765,16 +766,16 @@ void OGRSVGLayer::startElementLoadSchemaCbk(const char *pszName,
 
 void OGRSVGLayer::endElementLoadSchemaCbk(CPL_UNUSED const char *pszName)
 {
-    if (bStopParsing) return;
+    if( bStopParsing ) return;
 
     nWithoutEventCounter = 0;
 
     depthLevel--;
 
-    if (inInterestingElement &&
-        depthLevel == interestingDepthLevel)
+    if( inInterestingElement &&
+        depthLevel == interestingDepthLevel )
     {
-        inInterestingElement = FALSE;
+        inInterestingElement = false;
     }
 }
 
@@ -785,7 +786,7 @@ void OGRSVGLayer::endElementLoadSchemaCbk(CPL_UNUSED const char *pszName)
 void OGRSVGLayer::dataHandlerLoadSchemaCbk(CPL_UNUSED const char *data,
                                            CPL_UNUSED int nLen)
 {
-    if (bStopParsing) return;
+    if( bStopParsing ) return;
 
     nDataHandlerCounter ++;
     if (nDataHandlerCounter >= BUFSIZ)
@@ -793,7 +794,7 @@ void OGRSVGLayer::dataHandlerLoadSchemaCbk(CPL_UNUSED const char *data,
         CPLError(CE_Failure, CPLE_AppDefined,
                  "File probably corrupted (million laugh pattern)");
         XML_StopParser(oSchemaParser, XML_FALSE);
-        bStopParsing = TRUE;
+        bStopParsing = true;
         return;
     }
 

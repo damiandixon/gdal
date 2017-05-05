@@ -225,6 +225,27 @@ void CPL_DLL CPL_STDCALL GDALDestroyWarpOptions( GDALWarpOptions * );
 GDALWarpOptions CPL_DLL * CPL_STDCALL
 GDALCloneWarpOptions( const GDALWarpOptions * );
 
+void CPL_DLL CPL_STDCALL 
+GDALWarpInitDstNoDataReal( GDALWarpOptions *, double dNoDataReal );
+
+void CPL_DLL CPL_STDCALL 
+GDALWarpInitSrcNoDataReal( GDALWarpOptions *, double dNoDataReal );
+
+void CPL_DLL CPL_STDCALL 
+GDALWarpInitNoDataReal( GDALWarpOptions *, double dNoDataReal );
+
+void CPL_DLL CPL_STDCALL 
+GDALWarpInitDstNoDataImag( GDALWarpOptions *, double dNoDataImag );
+
+void CPL_DLL CPL_STDCALL 
+GDALWarpInitSrcNoDataImag( GDALWarpOptions *, double dNoDataImag );
+
+void CPL_DLL CPL_STDCALL
+GDALWarpResolveWorkingDataType( GDALWarpOptions * );
+
+void CPL_DLL CPL_STDCALL
+GDALWarpInitDefaultBandMapping( GDALWarpOptions *, int nBandCount );
+
 /*! @cond Doxygen_Suppress */
 CPLXMLNode CPL_DLL * CPL_STDCALL
       GDALSerializeWarpOptions( const GDALWarpOptions * );
@@ -279,7 +300,6 @@ CPL_C_END
 /************************************************************************/
 /*                            GDALWarpKernel                            */
 /*                                                                      */
-
 
 /** This is the number of dummy pixels that must be reserved in source arrays
  * in order to satisfy assumptions made in GWKResample(), and more specifically
@@ -429,7 +449,7 @@ private:
                                          int *pnSrcXExtraSize, int *pnSrcYExtraSize,
                                          double* pdfSrcFillRatio );
 
-    CPLErr          CreateKernelMask( GDALWarpKernel *, int iBand,
+    static CPLErr          CreateKernelMask( GDALWarpKernel *, int iBand,
                                       const char *pszType );
 
     CPLMutex        *hIOMutex;
@@ -454,6 +474,9 @@ public:
     virtual        ~GDALWarpOperation();
 
     CPLErr          Initialize( const GDALWarpOptions *psNewOptions );
+    void*           CreateDestinationBuffer( int nDstXSize, int nDstYSize, 
+                                             int *pbWasInitialized = NULL );
+    static void     DestroyDestinationBuffer(void* pDstBuffer);
 
     const GDALWarpOptions         *GetOptions();
 
@@ -516,6 +539,7 @@ int GWKGetFilterRadius(GDALResampleAlg eResampleAlg);
 typedef double (*FilterFuncType)(double dfX);
 FilterFuncType GWKGetFilterFunc(GDALResampleAlg eResampleAlg);
 
+// TODO(schwehr): Can padfVals be a const pointer?
 typedef double (*FilterFunc4ValuesType)(double* padfVals);
 FilterFunc4ValuesType GWKGetFilterFunc4Values(GDALResampleAlg eResampleAlg);
 /*! @endcond */

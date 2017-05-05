@@ -57,14 +57,14 @@ public:
                ~OGRMIAttrIndex();
 
     GByte      *BuildKey( OGRField *psKey );
-    GIntBig     GetFirstMatch( OGRField *psKey );
-    GIntBig    *GetAllMatches( OGRField *psKey );
-    GIntBig    *GetAllMatches( OGRField *psKey, GIntBig* panFIDList, int* nFIDCount, int* nLength );
+    GIntBig     GetFirstMatch( OGRField *psKey ) override;
+    GIntBig    *GetAllMatches( OGRField *psKey ) override;
+    GIntBig    *GetAllMatches( OGRField *psKey, GIntBig* panFIDList, int* nFIDCount, int* nLength ) override;
 
-    OGRErr      AddEntry( OGRField *psKey, GIntBig nFID );
-    OGRErr      RemoveEntry( OGRField *psKey, GIntBig nFID );
+    OGRErr      AddEntry( OGRField *psKey, GIntBig nFID ) override;
+    OGRErr      RemoveEntry( OGRField *psKey, GIntBig nFID ) override;
 
-    OGRErr      Clear();
+    OGRErr      Clear() override;
 };
 
 /************************************************************************/
@@ -94,15 +94,15 @@ public:
     virtual     ~OGRMILayerAttrIndex();
 
     /* base class virtual methods */
-    OGRErr      Initialize( const char *pszIndexPath, OGRLayer * );
-    OGRErr      CreateIndex( int iField );
-    OGRErr      DropIndex( int iField );
-    OGRErr      IndexAllFeatures( int iField = -1 );
+    OGRErr      Initialize( const char *pszIndexPath, OGRLayer * ) override;
+    OGRErr      CreateIndex( int iField ) override;
+    OGRErr      DropIndex( int iField ) override;
+    OGRErr      IndexAllFeatures( int iField = -1 ) override;
 
-    OGRErr      AddToIndex( OGRFeature *poFeature, int iField = -1 );
-    OGRErr      RemoveFromIndex( OGRFeature *poFeature );
+    OGRErr      AddToIndex( OGRFeature *poFeature, int iField = -1 ) override;
+    OGRErr      RemoveFromIndex( OGRFeature *poFeature ) override;
 
-    OGRAttrIndex *GetFieldIndex( int iField );
+    OGRAttrIndex *GetFieldIndex( int iField ) override;
 
     /* custom to OGRMILayerAttrIndex */
     OGRErr      SaveConfigToXML();
@@ -338,7 +338,6 @@ OGRErr OGRMILayerAttrIndex::SaveConfigToXML()
         CPLCreateXMLElementAndValue( psIndex, "FieldName",
                                      poLayer->GetLayerDefn()->GetFieldDefn(poAI->iField)->GetNameRef() );
 
-
         CPLCreateXMLElementAndValue( psIndex, "IndexIndex",
                                      CPLSPrintf( "%d", poAI->iIndex ) );
     }
@@ -536,7 +535,6 @@ OGRErr OGRMILayerAttrIndex::DropIndex( int iField )
     {
         if( papoIndexList[i]->iField == iField )
             break;
-
     }
 
     if( i == nIndexCount )
@@ -631,7 +629,7 @@ OGRErr OGRMILayerAttrIndex::AddToIndex( OGRFeature *poFeature,
         if( iTargetField != -1 && iTargetField != iField )
             continue;
 
-        if( !poFeature->IsFieldSet( iField ) )
+        if( !poFeature->IsFieldSetAndNotNull( iField ) )
             continue;
 
         eErr =
@@ -732,10 +730,11 @@ OGRErr OGRMIAttrIndex::RemoveEntry( OGRField * /*psKey*/, GIntBig /*nFID*/ )
 GByte *OGRMIAttrIndex::BuildKey( OGRField *psKey )
 
 {
+    GByte* ret = NULL;
     switch( poFldDefn->GetType() )
     {
       case OFTInteger:
-        return poINDFile->BuildKey( iIndex, psKey->Integer );
+        ret = poINDFile->BuildKey( iIndex, psKey->Integer );
         break;
 
       case OFTInteger64:
@@ -745,23 +744,23 @@ GByte *OGRMIAttrIndex::BuildKey( OGRField *psKey )
             CPLError(CE_Warning, CPLE_NotSupported,
                      "64bit integer value passed to OGRMIAttrIndex::BuildKey()");
         }
-        return poINDFile->BuildKey( iIndex, (int)psKey->Integer64 );
+        ret = poINDFile->BuildKey( iIndex, (int)psKey->Integer64 );
         break;
       }
 
       case OFTReal:
-        return poINDFile->BuildKey( iIndex, psKey->Real );
+        ret = poINDFile->BuildKey( iIndex, psKey->Real );
         break;
 
       case OFTString:
-        return poINDFile->BuildKey( iIndex, psKey->String );
+        ret = poINDFile->BuildKey( iIndex, psKey->String );
         break;
 
       default:
         CPLAssert( false );
-
-        return NULL;
+        break;
     }
+    return ret;
 }
 
 /************************************************************************/

@@ -39,7 +39,6 @@ static const int InterlacedJumps[] = { 8, 8, 4, 2 };
 /* ==================================================================== */
 /************************************************************************/
 
-
 /************************************************************************/
 /*                         GIFAbstractDataset()                         */
 /************************************************************************/
@@ -190,7 +189,7 @@ void GIFAbstractDataset::CollectXMPMetadata()
         return;
 
     CPLString osXMP = GIFCollectXMPMetadata(fp);
-    if (osXMP.size())
+    if (!osXMP.empty() )
     {
         /* Avoid setting the PAM dirty bit just for that */
         int nOldPamFlags = nPamFlags;
@@ -325,7 +324,7 @@ char **GIFAbstractDataset::GetFileList()
 {
     char **papszFileList = GDALPamDataset::GetFileList();
 
-    if (osWldFilename.size() != 0 &&
+    if (!osWldFilename.empty() &&
         CSLFindString(papszFileList, osWldFilename) == -1)
     {
         papszFileList = CSLAddString( papszFileList, osWldFilename );

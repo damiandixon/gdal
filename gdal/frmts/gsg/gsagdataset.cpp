@@ -77,7 +77,7 @@ class GSAGDataset : public GDALPamDataset
     CPLErr UpdateHeader();
 
   public:
-                GSAGDataset( const char *pszEOL = "\x0D\x0A" );
+    explicit     GSAGDataset( const char *pszEOL = "\x0D\x0A" );
                 ~GSAGDataset();
 
     static int          Identify( GDALOpenInfo * );
@@ -88,8 +88,8 @@ class GSAGDataset : public GDALPamDataset
                                     GDALProgressFunc pfnProgress,
                                     void *pProgressData );
 
-    CPLErr GetGeoTransform( double *padfGeoTransform );
-    CPLErr SetGeoTransform( double *padfGeoTransform );
+    CPLErr GetGeoTransform( double *padfGeoTransform ) override;
+    CPLErr SetGeoTransform( double *padfGeoTransform ) override;
 };
 
 /* NOTE:  This is not mentioned in the spec, but Surfer 8 uses this value */
@@ -131,12 +131,12 @@ class GSAGRasterBand : public GDALPamRasterBand
                 GSAGRasterBand( GSAGDataset *, int, vsi_l_offset );
                 ~GSAGRasterBand();
 
-    CPLErr IReadBlock( int, int, void * );
-    CPLErr IWriteBlock( int, int, void * );
+    CPLErr IReadBlock( int, int, void * ) override;
+    CPLErr IWriteBlock( int, int, void * ) override;
 
-    double GetNoDataValue( int *pbSuccess = NULL );
-    double GetMinimum( int *pbSuccess = NULL );
-    double GetMaximum( int *pbSuccess = NULL );
+    double GetNoDataValue( int *pbSuccess = NULL ) override;
+    double GetMinimum( int *pbSuccess = NULL ) override;
+    double GetMaximum( int *pbSuccess = NULL ) override;
 };
 
 /************************************************************************/
@@ -500,7 +500,7 @@ CPLErr GSAGRasterBand::IReadBlock( int nBlockXOff, int nBlockYOff,
             else if( nCharsRead > static_cast<size_t>(szEnd - szStart) )
             {
                 /* Read new data, this was not really the end */
-                szEnd = szStart = szLineBuf;
+                szEnd = szLineBuf;
                 continue;
             }
 
@@ -778,8 +778,7 @@ GSAGDataset::GSAGDataset( const char *pszEOL ) :
         return;
     }
 
-    strncpy(szEOL, pszEOL, sizeof(szEOL));
-    szEOL[sizeof(this->szEOL) - 1] = '\0';
+    snprintf(szEOL, sizeof(szEOL), "%s", pszEOL);
 }
 
 /************************************************************************/
@@ -1060,7 +1059,7 @@ GDALDataset *GSAGDataset::Open( GDALOpenInfo * poOpenInfo )
 /* -------------------------------------------------------------------- */
     poDS->oOvManager.Initialize( poDS, poOpenInfo->pszFilename, poOpenInfo->GetSiblingFiles() );
 
-    return( poDS );
+    return poDS;
 
 error:
     if ( bMustFreeHeader )
@@ -1139,7 +1138,6 @@ CPLErr GSAGDataset::SetGeoTransform( double *padfGeoTransform )
         return CE_Failure;
 
     /* non-zero transform 2 or 4 or negative 1 or 5 not supported natively */
-    CPLErr eErr = CE_None;
     /*if( padfGeoTransform[2] != 0.0 || padfGeoTransform[4] != 0.0
         || padfGeoTransform[1] < 0.0 || padfGeoTransform[5] < 0.0 )
         eErr = GDALPamDataset::SetGeoTransform( padfGeoTransform );*/
@@ -1158,7 +1156,7 @@ CPLErr GSAGDataset::SetGeoTransform( double *padfGeoTransform )
         padfGeoTransform[5] * (nRasterYSize - 0.5) + padfGeoTransform[3];
     poGRB->dfMaxY = padfGeoTransform[3] + padfGeoTransform[5] / 2;
 
-    eErr = UpdateHeader();
+    CPLErr eErr = UpdateHeader();
 
     if( eErr != CE_None )
     {
@@ -1206,25 +1204,7 @@ CPLErr GSAGDataset::ShiftFileContents( VSILFILE *fp, vsi_l_offset nShiftStart,
             if( nShiftStart + nShiftSize >= nOldEnd )
                 return CE_None;
 
-            if( VSIFSeekL( fp, nShiftStart + nShiftSize, SEEK_SET ) != 0 )
-            {
-                CPLError( CE_Failure, CPLE_FileIO,
-                          "Unable to seek near end of file.\n" );
-                return CE_Failure;
-            }
-
-            /* ftruncate()? */
-            for( vsi_l_offset nPos = nShiftStart + nShiftSize;
-                 nPos > nOldEnd; nPos++ )
-            {
-                if( VSIFWriteL( (void *)" ", 1, 1, fp ) != 1 )
-                {
-                    CPLError( CE_Failure, CPLE_FileIO,
-                              "Unable to write padding to grid file "
-                              "(Out of space?).\n" );
-                    return CE_Failure;
-                }
-            }
+            VSIFTruncateL( fp, nShiftStart + nShiftSize );
 
             return CE_None;
         }

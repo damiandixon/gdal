@@ -108,7 +108,6 @@ typedef struct
 
 } GDALPansharpenOptions;
 
-
 GDALPansharpenOptions CPL_DLL * GDALCreatePansharpenOptions(void);
 void CPL_DLL GDALDestroyPansharpenOptions( GDALPansharpenOptions * );
 GDALPansharpenOptions CPL_DLL * GDALClonePansharpenOptions(
@@ -213,6 +212,8 @@ class GDALPansharpenOperation
                                                      int nValues,
                                                      int nBandValues,
                                                      WorkDataType nMaxValue) const;
+
+        // cppcheck-suppress functionStatic
         template<class WorkDataType, class OutDataType> void WeightedBrovey(
                                                      const WorkDataType* pPanBuffer,
                                                      const WorkDataType* pUpsampledSpectralBuffer,
@@ -228,6 +229,8 @@ class GDALPansharpenOperation
                                                      int nValues,
                                                      int nBandValues,
                                                      WorkDataType nMaxValue) const;
+
+        // cppcheck-suppress functionStatic
         template<class WorkDataType> CPLErr WeightedBrovey(
                                                      const WorkDataType* pPanBuffer,
                                                      const WorkDataType* pUpsampledSpectralBuffer,

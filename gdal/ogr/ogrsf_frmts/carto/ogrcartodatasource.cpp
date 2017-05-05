@@ -84,6 +84,8 @@ int OGRCARTODataSource::TestCapability( const char * pszCap )
         return TRUE;
     else if( bReadWrite && EQUAL(pszCap,ODsCDeleteLayer) )
         return TRUE;
+    else if( EQUAL(pszCap,ODsCRandomLayerWrite) )
+        return bReadWrite;
     else
         return FALSE;
 }
@@ -124,7 +126,7 @@ static CPLString OGRCARTOGetOptionValue(const char* pszFilename,
     if (!pszOptionValue)
         return "";
 
-    CPLString osOptionValue(pszOptionValue + strlen(osOptionName));
+    CPLString osOptionValue(pszOptionValue + osOptionName.size());
     const char* pszSpace = strchr(osOptionValue.c_str(), ' ');
     if (pszSpace)
         osOptionValue.resize(pszSpace - osOptionValue.c_str());
@@ -170,7 +172,7 @@ int OGRCARTODataSource::Open( const char * pszFilename,
 
     CPLString osTables = OGRCARTOGetOptionValue(pszFilename, "tables");
 
-    /*if( osTables.size() == 0 && osAPIKey.size() == 0 )
+    /*if( osTables.empty() && osAPIKey.empty() )
     {
         CPLError(CE_Failure, CPLE_AppDefined,
                  "When not specifying tables option, CARTO_API_KEY must be defined");
@@ -195,7 +197,7 @@ int OGRCARTODataSource::Open( const char * pszFilename,
         }
         ReleaseResultSet(poSchemaLayer);
     }
-    if( osCurrentSchema.size() == 0 )
+    if( osCurrentSchema.empty() )
         return FALSE;
 
 /* -------------------------------------------------------------------- */
@@ -224,7 +226,7 @@ int OGRCARTODataSource::Open( const char * pszFilename,
         }
     }
 
-    if( osAPIKey.size() && bUpdateIn )
+    if( !osAPIKey.empty() && bUpdateIn )
     {
         ExecuteSQLInternal(
                 "DROP FUNCTION IF EXISTS ogr_table_metadata(TEXT,TEXT); "
@@ -257,7 +259,7 @@ int OGRCARTODataSource::Open( const char * pszFilename,
                 "$$ LANGUAGE SQL");
     }
 
-    if (osTables.size() != 0)
+    if (!osTables.empty())
     {
         char** papszTables = CSLTokenizeString2(osTables, ",", 0);
         for(int i=0;papszTables && papszTables[i];i++)
@@ -350,6 +352,7 @@ int OGRCARTODataSource::FetchSRSId( OGRSpatialReference * poSRS )
         return 0;
 
     OGRSpatialReference oSRS(*poSRS);
+    // cppcheck-suppress uselessAssignmentPtrArg
     poSRS = NULL;
 
     pszAuthorityName = oSRS.GetAuthorityName(NULL);
@@ -439,7 +442,6 @@ OGRLayer   *OGRCARTODataSource::ICreateLayer( const char *pszNameIn,
         CPLFree(pszTmp);
     }
 
-
     OGRCARTOTableLayer* poLayer = new OGRCARTOTableLayer(this, osName);
     const bool bGeomNullable =
         CPLFetchBool(papszOptions, "GEOMETRY_NULLABLE", true);
@@ -507,7 +509,7 @@ OGRErr OGRCARTODataSource::DeleteLayer(int iLayer)
              sizeof(void *) * (nLayers - iLayer - 1) );
     nLayers--;
 
-    if (osLayerName.size() == 0)
+    if (osLayerName.empty())
         return OGRERR_NONE;
 
     if( !bDeferredCreation )
@@ -556,7 +558,7 @@ json_object* OGRCARTODataSource::RunSQL(const char* pszUnescapedSQL)
 /* -------------------------------------------------------------------- */
 /*      Provide the API Key                                             */
 /* -------------------------------------------------------------------- */
-    if( osAPIKey.size() )
+    if( !osAPIKey.empty() )
     {
         osSQL += "&api_key=";
         osSQL += osAPIKey;
@@ -606,21 +608,13 @@ json_object* OGRCARTODataSource::RunSQL(const char* pszUnescapedSQL)
     if( strlen((const char*)psResult->pabyData) < 1000 )
         CPLDebug( "CARTO", "RunSQL Response:%s", psResult->pabyData );
 
-    json_tokener* jstok = NULL;
     json_object* poObj = NULL;
-
-    jstok = json_tokener_new();
-    poObj = json_tokener_parse_ex(jstok, (const char*) psResult->pabyData, -1);
-    if( jstok->err != json_tokener_success)
+    const char* pszText = reinterpret_cast<const char*>(psResult->pabyData);
+    if( !OGRJSonParse(pszText, &poObj, true) )
     {
-        CPLError( CE_Failure, CPLE_AppDefined,
-                    "JSON parsing error: %s (at offset %d)",
-                    json_tokener_error_desc(jstok->err), jstok->char_offset);
-        json_tokener_free(jstok);
         CPLHTTPDestroyResult(psResult);
         return NULL;
     }
-    json_tokener_free(jstok);
 
     CPLHTTPDestroyResult(psResult);
 

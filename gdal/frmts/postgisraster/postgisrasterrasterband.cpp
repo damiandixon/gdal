@@ -79,10 +79,6 @@ PostGISRasterRasterBand::PostGISRasterRasterBand(
 
 #ifdef DEBUG_VERBOSE
     CPLDebug("PostGIS_Raster",
-        "PostGISRasterRasterBand constructor: Band created (srid = %d)",
-        poDS->nSrid);
-
-    CPLDebug("PostGIS_Raster",
         "PostGISRasterRasterBand constructor: Band size: (%d X %d)",
         nRasterXSize, nRasterYSize);
 
@@ -255,7 +251,6 @@ void PostGISRasterRasterBand::NullBuffer(void* pData,
                     nBufXSize);
     }
 }
-
 
 /********************************************************
  * \brief SortTilesByPKID
@@ -507,7 +502,7 @@ CPLErr PostGISRasterRasterBand::IRasterIO(GDALRWFlag eRWFlag, int nXOff,
             // If we have a PKID, add the tile PKID to the list
             if (poTile->pszPKID != NULL)
             {
-                if( osIDsToFetch.size() != 0 )
+                if( !osIDsToFetch.empty() )
                     osIDsToFetch += ",";
                 osIDsToFetch += "'";
                 osIDsToFetch += poTile->pszPKID;
@@ -618,7 +613,7 @@ CPLErr PostGISRasterRasterBand::IRasterIO(GDALRWFlag eRWFlag, int nXOff,
             osRasterToFetch.Printf("ST_Band(%s, %d)", pszColumn, nBand);
 
         int bHasWhere = FALSE;
-        if (osIDsToFetch.size() && (poRDS->bIsFastPK || !(poRDS->HasSpatialIndex())) ) {
+        if (!osIDsToFetch.empty() && (poRDS->bIsFastPK || !(poRDS->HasSpatialIndex())) ) {
             osCommand.Printf("SELECT %s, "
                 "ST_Metadata(%s), %s FROM %s.%s",
                 osRasterToFetch.c_str(), pszColumn,

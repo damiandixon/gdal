@@ -34,6 +34,8 @@
 #include "gdal_pam.h"
 #include "ogr_spatialref.h"
 
+#include <algorithm>
+
 CPL_CVSID("$Id$");
 
 /************************************************************************/
@@ -84,14 +86,14 @@ class CPL_DLL WCSDataset : public GDALPamDataset
                               int, int *,
                               GSpacing nPixelSpace, GSpacing nLineSpace,
                               GSpacing nBandSpace,
-                              GDALRasterIOExtraArg* psExtraArg);
+                              GDALRasterIOExtraArg* psExtraArg) override;
 
     int         DescribeCoverage();
     int         ExtractGridInfo100();
     int         ExtractGridInfo();
     int         EstablishRasterDetails();
 
-    int         ProcessError( CPLHTTPResult *psResult );
+    static int         ProcessError( CPLHTTPResult *psResult );
     GDALDataset *GDALOpenResult( CPLHTTPResult *psResult );
     void        FlushMemoryResult();
     CPLString   osResultFilename;
@@ -109,12 +111,12 @@ class CPL_DLL WCSDataset : public GDALPamDataset
     static GDALDataset *Open( GDALOpenInfo * );
     static int Identify( GDALOpenInfo * );
 
-    virtual CPLErr GetGeoTransform( double * );
-    virtual const char *GetProjectionRef(void);
-    virtual char **GetFileList(void);
+    virtual CPLErr GetGeoTransform( double * ) override;
+    virtual const char *GetProjectionRef(void) override;
+    virtual char **GetFileList(void) override;
 
-    virtual char      **GetMetadataDomainList();
-    virtual char **GetMetadata( const char *pszDomain );
+    virtual char      **GetMetadataDomainList() override;
+    virtual char **GetMetadata( const char *pszDomain ) override;
 };
 
 /************************************************************************/
@@ -138,19 +140,19 @@ class WCSRasterBand : public GDALPamRasterBand
     virtual CPLErr IRasterIO( GDALRWFlag, int, int, int, int,
                               void *, int, int, GDALDataType,
                               GSpacing nPixelSpace, GSpacing nLineSpace,
-                              GDALRasterIOExtraArg* psExtraArg );
+                              GDALRasterIOExtraArg* psExtraArg ) override;
 
   public:
 
                    WCSRasterBand( WCSDataset *, int nBand, int iOverview );
     virtual ~WCSRasterBand();
 
-    virtual double GetNoDataValue( int *pbSuccess = NULL );
+    virtual double GetNoDataValue( int *pbSuccess = NULL ) override;
 
-    virtual int GetOverviewCount();
-    virtual GDALRasterBand *GetOverview(int);
+    virtual int GetOverviewCount() override;
+    virtual GDALRasterBand *GetOverview(int) override;
 
-    virtual CPLErr IReadBlock( int, int, void * );
+    virtual CPLErr IReadBlock( int, int, void * ) override;
 };
 
 /************************************************************************/
@@ -210,7 +212,8 @@ WCSRasterBand::WCSRasterBand( WCSDataset *poDSIn, int nBandIn,
         if( nOverviewCount < 0 )
         {
             for( nOverviewCount = 0;
-                 (MAX(nRasterXSize,nRasterYSize) / (1 << nOverviewCount)) > 900;
+                 (std::max(nRasterXSize, nRasterYSize) /
+                  (1 << nOverviewCount)) > 900;
                  nOverviewCount++ ) {}
         }
         else if( nOverviewCount > 30 )
@@ -436,7 +439,6 @@ GDALRasterBand *WCSRasterBand::GetOverview( int iOverviewIn )
 /* ==================================================================== */
 /************************************************************************/
 
-
 /************************************************************************/
 /*                             WCSDataset()                             */
 /************************************************************************/
@@ -616,8 +618,8 @@ WCSDataset::DirectRasterIO( CPL_UNUSED GDALRWFlag eRWFlag,
         return CE_Failure;
     }
 
-    if( (strlen(osBandIdentifier) && poTileDS->GetRasterCount() != nBandCount)
-        || (!strlen(osBandIdentifier) && poTileDS->GetRasterCount() !=
+    if( (!osBandIdentifier.empty() && poTileDS->GetRasterCount() != nBandCount)
+        || (osBandIdentifier.empty() && poTileDS->GetRasterCount() !=
             GetRasterCount() ) )
     {
         CPLError( CE_Failure, CPLE_AppDefined,
@@ -637,7 +639,7 @@ WCSDataset::DirectRasterIO( CPL_UNUSED GDALRWFlag eRWFlag,
     {
         GDALRasterBand *poTileBand = NULL;
 
-        if( strlen(osBandIdentifier) )
+        if( !osBandIdentifier.empty() )
             poTileBand = poTileDS->GetRasterBand( iBand + 1 );
         else
             poTileBand = poTileDS->GetRasterBand( panBandMap[iBand] );
@@ -693,7 +695,7 @@ CPLErr WCSDataset::GetCoverage( int nXOff, int nYOff, int nXSize, int nYSize,
     CPLString osBandList;
     int       bSelectingBands = FALSE;
 
-    if( strlen(osBandIdentifier) && nBandCount > 0 )
+    if( !osBandIdentifier.empty() && nBandCount > 0 && panBandList != NULL )
     {
         int iBand;
 
@@ -1145,7 +1147,7 @@ int WCSDataset::ExtractGridInfo100()
              papszFormatList != NULL && papszFormatList[iFormat] != NULL;
              iFormat++ )
         {
-            if( strlen(osPreferredFormat) == 0 )
+            if( osPreferredFormat.empty() )
                 osPreferredFormat = papszFormatList[iFormat];
 
             if( strstr(papszFormatList[iFormat],"tiff") != NULL
@@ -1159,7 +1161,7 @@ int WCSDataset::ExtractGridInfo100()
 
         CSLDestroy( papszFormatList );
 
-        if( strlen(osPreferredFormat) > 0 )
+        if( !osPreferredFormat.empty() )
         {
             bServiceDirty = TRUE;
             CPLCreateXMLElementAndValue( psService, "PreferredFormat",
@@ -1193,7 +1195,7 @@ int WCSDataset::ExtractGridInfo100()
       "CoverageOffering.rangeSet.RangeSet.axisDescription.AxisDescription" );
     CPLXMLNode *psValues;
 
-    if( strlen(osBandIdentifier) == 0
+    if( osBandIdentifier.empty()
         && psAD != NULL
         && (EQUAL(CPLGetXMLValue(psAD,"name",""),"Band")
             || EQUAL(CPLGetXMLValue(psAD,"name",""),"Bands"))
@@ -1219,7 +1221,7 @@ int WCSDataset::ExtractGridInfo100()
             }
         }
 
-        if( strlen(osBandIdentifier) )
+        if( !osBandIdentifier.empty() )
         {
             bServiceDirty = TRUE;
             CPLCreateXMLElementAndValue( psService, "BandIdentifier",
@@ -1254,13 +1256,12 @@ int WCSDataset::ExtractGridInfo100()
 
         // we will default to the last - likely the most recent - entry.
 
-        if( aosTimePositions.size() > 0
-            && osDefaultTime == ""
+        if( !aosTimePositions.empty()
+            && osDefaultTime.empty()
             && osServiceURL.ifind("time=") == std::string::npos
             && osCoverageExtra.ifind("time=") == std::string::npos )
         {
-            osDefaultTime = aosTimePositions[aosTimePositions.size()-1];
-
+            osDefaultTime = aosTimePositions.back();
             bServiceDirty = TRUE;
             CPLCreateXMLElementAndValue( psService, "DefaultTime",
                                          osDefaultTime );
@@ -1453,7 +1454,7 @@ int WCSDataset::ExtractGridInfo()
 /* -------------------------------------------------------------------- */
     osCRS = CPLGetXMLValue( psGCRS, "GridBaseCRS", "" );
 
-    if( strlen(osCRS) == 0 )
+    if( osCRS.empty() )
     {
         CPLError( CE_Failure, CPLE_AppDefined,
                   "Unable to find GridCRS.GridBaseCRS" );
@@ -1573,7 +1574,7 @@ int WCSDataset::ExtractGridInfo()
                 && psNode->psChild
                 && psNode->psChild->eType == CXT_Text )
             {
-                if( strlen(osPreferredFormat) == 0 )
+                if( osPreferredFormat.empty() )
                     osPreferredFormat = psNode->psChild->pszValue;
 
                 if( strstr(psNode->psChild->pszValue,"tiff") != NULL
@@ -1586,7 +1587,7 @@ int WCSDataset::ExtractGridInfo()
             }
         }
 
-        if( strlen(osPreferredFormat) > 0 )
+        if( !osPreferredFormat.empty() )
         {
             bServiceDirty = TRUE;
             CPLCreateXMLElementAndValue( psService, "PreferredFormat",
@@ -1619,7 +1620,7 @@ int WCSDataset::ExtractGridInfo()
         CPLString osFieldName =
             CPLGetXMLValue( psCO, "Range.Field.Identifier", "" );
 
-        if( strlen(osFieldName) > 0 )
+        if( !osFieldName.empty() )
         {
             bServiceDirty = TRUE;
             CPLCreateXMLElementAndValue( psService, "FieldName",
@@ -1667,7 +1668,7 @@ int WCSDataset::ExtractGridInfo()
             }
         }
 
-        if( strlen(osBandIdentifier) )
+        if( !osBandIdentifier.empty() )
         {
             bServiceDirty = TRUE;
             if( CPLGetXMLValue(psService,"BandIdentifier",NULL) == NULL )
@@ -1770,7 +1771,6 @@ int WCSDataset::ProcessError( CPLHTTPResult *psResult )
         CPLHTTPDestroyResult( psResult );
         return TRUE;
     }
-
 
 /* -------------------------------------------------------------------- */
 /*      Hopefully the error already issued by CPLHTTPFetch() is         */
@@ -1877,7 +1877,7 @@ int WCSDataset::EstablishRasterDetails()
 void WCSDataset::FlushMemoryResult()
 
 {
-    if( strlen(osResultFilename) > 0 )
+    if( !osResultFilename.empty() )
     {
         VSIUnlink( osResultFilename );
         osResultFilename = "";
@@ -2005,7 +2005,6 @@ GDALDataset *WCSDataset::GDALOpenResult( CPLHTTPResult *psResult )
     pabySavedDataBuffer = psResult->pabyData;
 
     psResult->pabyData = NULL;
-    psResult->nDataLen = psResult->nDataAlloc = 0;
 
     if( poDS == NULL )
         FlushMemoryResult();
@@ -2088,7 +2087,6 @@ GDALDataset *WCSDataset::Open( GDALOpenInfo * poOpenInfo )
             CPLFree( papszModifiers[iLast] );
             papszModifiers[iLast] = NULL;
         }
-
     }
 
 /* -------------------------------------------------------------------- */
@@ -2254,7 +2252,7 @@ GDALDataset *WCSDataset::Open( GDALOpenInfo * poOpenInfo )
 /* -------------------------------------------------------------------- */
     if( !STARTS_WITH_CI(poOpenInfo->pszFilename, "WCS_SDS:")
         && !STARTS_WITH_CI(poOpenInfo->pszFilename, "<WCS_GDAL>")
-        && poDS->aosTimePositions.size() > 0 )
+        && !poDS->aosTimePositions.empty() )
     {
         char **papszSubdatasets = NULL;
         int iTime;
@@ -2292,7 +2290,7 @@ GDALDataset *WCSDataset::Open( GDALOpenInfo * poOpenInfo )
 /*      Initialize any PAM information.                                 */
 /* -------------------------------------------------------------------- */
     poDS->TryLoadXML();
-    return( poDS );
+    return poDS;
 }
 
 /************************************************************************/
@@ -2303,7 +2301,7 @@ CPLErr WCSDataset::GetGeoTransform( double * padfTransform )
 
 {
     memcpy( padfTransform, adfGeoTransform, sizeof(double)*6 );
-    return( CE_None );
+    return CE_None;
 }
 
 /************************************************************************/
@@ -2320,7 +2318,7 @@ const char *WCSDataset::GetProjectionRef()
     if ( pszProjection && strlen(pszProjection) > 0 )
         return pszProjection;
 
-    return( "" );
+    return "";
 }
 
 /************************************************************************/
@@ -2390,7 +2388,6 @@ char **WCSDataset::GetMetadata( const char *pszDomain )
 
     return apszCoverageOfferingMD;
 }
-
 
 /************************************************************************/
 /*                          GDALRegister_WCS()                          */

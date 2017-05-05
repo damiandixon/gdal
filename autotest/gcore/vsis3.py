@@ -28,7 +28,6 @@
 # DEALINGS IN THE SOFTWARE.
 ###############################################################################
 
-import os
 import sys
 from osgeo import gdal
 
@@ -47,7 +46,7 @@ def open_for_read(uri):
 def vsis3_init():
 
     gdaltest.aws_vars = {}
-    for var in ('AWS_SECRET_ACCESS_KEY', 'AWS_ACCESS_KEY_ID', 'AWS_TIMESTAMP', 'AWS_HTTPS', 'AWS_VIRTUAL_HOSTING', 'AWS_S3_ENDPOINT'):
+    for var in ('AWS_SECRET_ACCESS_KEY', 'AWS_ACCESS_KEY_ID', 'AWS_TIMESTAMP', 'AWS_HTTPS', 'AWS_VIRTUAL_HOSTING', 'AWS_S3_ENDPOINT', 'AWS_REQUEST_PAYER'):
         gdaltest.aws_vars[var] = gdal.GetConfigOption(var)
         if gdaltest.aws_vars[var] is not None:
             gdal.SetConfigOption(var, "")
@@ -221,7 +220,7 @@ def vsis3_2():
 
     if data != 'foo':
 
-        if 'TRAVIS_BRANCH' in os.environ and os.environ['TRAVIS_BRANCH'].find('trusty') >= 0:
+        if gdaltest.is_travis_branch('trusty'):
             print('Skipped on trusty branch, but should be investigated')
             return 'skip'
 
@@ -290,6 +289,19 @@ def vsis3_2():
         print(gdal.VSIGetLastErrorMsg())
         return 'fail'
 
+    # Test with requester pays
+    gdal.SetConfigOption('AWS_REQUEST_PAYER', 'requester')
+    f = open_for_read('/vsis3/s3_fake_bucket_with_requester_pays/resource')
+    if f is None:
+        gdaltest.post_reason('fail')
+        return 'fail'
+    data = gdal.VSIFReadL(1, 3, f).decode('ascii')
+    gdal.VSIFCloseL(f)
+    gdal.SetConfigOption('AWS_REQUEST_PAYER', None)
+    if data != 'foo':
+        gdaltest.post_reason('fail')
+        return 'fail'
+
     return 'success'
 
 ###############################################################################
@@ -302,7 +314,7 @@ def vsis3_3():
     f = open_for_read('/vsis3/s3_fake_bucket2/a_dir/resource3.bin')
     if f is None:
 
-        if 'TRAVIS_BRANCH' in os.environ and os.environ['TRAVIS_BRANCH'].find('trusty') >= 0:
+        if gdaltest.is_travis_branch('trusty'):
             print('Skipped on trusty branch, but should be investigated')
             return 'skip'
 

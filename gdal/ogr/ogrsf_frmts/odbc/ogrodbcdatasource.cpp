@@ -105,8 +105,7 @@ static int CheckDSNStringTemplate(const char* pszStr)
 
 int OGRODBCDataSource::OpenMDB( const char * pszNewName, int bUpdate )
 {
-    const char* pszOptionName = "";
-    pszOptionName = "PGEO_DRIVER_TEMPLATE";
+    const char* pszOptionName = "PGEO_DRIVER_TEMPLATE";
     const char* pszDSNStringTemplate = CPLGetConfigOption( pszOptionName, NULL );
     if( pszDSNStringTemplate == NULL )
     {
@@ -221,17 +220,21 @@ int OGRODBCDataSource::OpenMDB( const char * pszNewName, int bUpdate )
         while( oTableList.Fetch() )
         {
             const char *pszSchema = oTableList.GetColData(1);
-            CPLString osLayerName;
-
-            if( pszSchema != NULL && strlen(pszSchema) > 0 )
+            const char* pszTableName = oTableList.GetColData(2);
+            if( pszTableName != NULL )
             {
-                osLayerName = pszSchema;
-                osLayerName += ".";
+                CPLString osLayerName;
+
+                if( pszSchema != NULL && strlen(pszSchema) > 0 )
+                {
+                    osLayerName = pszSchema;
+                    osLayerName += ".";
+                }
+
+                osLayerName += pszTableName;
+
+                OpenTable( osLayerName, NULL, bUpdate );
             }
-
-            osLayerName += oTableList.GetColData(2);
-
-            OpenTable( osLayerName, NULL, bUpdate );
         }
 
         return TRUE;

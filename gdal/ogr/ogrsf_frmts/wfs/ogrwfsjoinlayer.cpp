@@ -44,9 +44,9 @@ OGRWFSJoinLayer::OGRWFSJoinLayer( OGRWFSDataSource* poDSIn,
     bDistinct(psSelectInfo->query_mode == SWQM_DISTINCT_LIST),
     poBaseDS(NULL),
     poBaseLayer(NULL),
-    bReloadNeeded(FALSE),
-    bHasFetched(FALSE),
-    bPagingActive(FALSE),
+    bReloadNeeded(false),
+    bHasFetched(false),
+    bPagingActive(false),
     nPagingStartIndex(0),
     nFeatureRead(0),
     nFeatureCountRequested(0)
@@ -151,7 +151,7 @@ OGRWFSJoinLayer::OGRWFSJoinLayer( OGRWFSDataSource* poDSIn,
         /* Make sure to have the right case */
         const char* pszFieldName = apoLayers[0]->GetLayerDefn()->
             GetFieldDefn(nFieldIndex)->GetNameRef();
-        if( osSortBy.size() )
+        if( !osSortBy.empty() )
             osSortBy += ",";
         osSortBy += pszFieldName;
         if( !psSelectInfo->order_defs[i].ascending_flag )
@@ -274,7 +274,7 @@ OGRWFSJoinLayer* OGRWFSJoinLayer::Build(OGRWFSDataSource* poDS,
                                       FALSE, /* bGmlObjectIdNeedsGMLPrefix */
                                       "",
                                       &bOutNeedsNullCheck);
-        if( osFilter.size() == 0 )
+        if( osFilter.empty() )
         {
             CPLError(CE_Failure, CPLE_NotSupported,
                      "Unsupported JOIN clause");
@@ -297,7 +297,7 @@ OGRWFSJoinLayer* OGRWFSJoinLayer::Build(OGRWFSDataSource* poDS,
                                       FALSE, /* bGmlObjectIdNeedsGMLPrefix */
                                       "",
                                       &bOutNeedsNullCheck);
-        if( osFilter.size() == 0 )
+        if( osFilter.empty() )
         {
             CPLError(CE_Failure, CPLE_NotSupported,
                      "Unsupported WHERE clause");
@@ -320,18 +320,18 @@ OGRWFSJoinLayer* OGRWFSJoinLayer::Build(OGRWFSDataSource* poDS,
 
 void OGRWFSJoinLayer::ResetReading()
 {
-    if (bPagingActive)
-        bReloadNeeded = TRUE;
+    if( bPagingActive )
+        bReloadNeeded = true;
     nPagingStartIndex = 0;
     nFeatureRead = 0;
     nFeatureCountRequested = 0;
-    if (bReloadNeeded)
+    if( bReloadNeeded )
     {
         GDALClose(poBaseDS);
         poBaseDS = NULL;
         poBaseLayer = NULL;
-        bHasFetched = FALSE;
-        bReloadNeeded = FALSE;
+        bHasFetched = false;
+        bReloadNeeded = false;
     }
     if (poBaseLayer)
         poBaseLayer->ResetReading();
@@ -352,14 +352,14 @@ CPLString OGRWFSJoinLayer::MakeGetFeatureURL(int bRequestHits)
 
     int nRequestMaxFeatures = 0;
     if (poDS->IsPagingAllowed() && !bRequestHits &&
-        CPLURLGetValue(osURL, "COUNT").size() == 0 )
+        CPLURLGetValue(osURL, "COUNT").empty() )
     {
         osURL = CPLURLAddKVP(osURL, "STARTINDEX",
             CPLSPrintf("%d", nPagingStartIndex +
                                 poDS->GetBaseStartIndex()));
         nRequestMaxFeatures = poDS->GetPageSize();
         nFeatureCountRequested = nRequestMaxFeatures;
-        bPagingActive = TRUE;
+        bPagingActive = true;
     }
 
     if (nRequestMaxFeatures)
@@ -399,7 +399,7 @@ CPLString OGRWFSJoinLayer::MakeGetFeatureURL(int bRequestHits)
     {
         osURL = CPLURLAddKVP(osURL, "RESULTTYPE", "hits");
     }
-    else if( osSortBy.size() )
+    else if( !osSortBy.empty() )
     {
         osURL = CPLURLAddKVP(osURL, "SORTBY", WFS_EscapeURL(osSortBy));
     }
@@ -442,7 +442,7 @@ GDALDataset* OGRWFSJoinLayer::FetchGetFeature()
                            apszOpenOptions, NULL);
         if (poGML_DS)
         {
-            //bStreamingDS = TRUE;
+            // bStreamingDS = true;
             return poGML_DS;
         }
 
@@ -470,7 +470,7 @@ GDALDataset* OGRWFSJoinLayer::FetchGetFeature()
         }
     }
 
-    //bStreamingDS = FALSE;
+    // bStreamingDS = false;
     psResult = poDS->HTTPFetch( osURL, NULL);
     if (psResult == NULL)
     {
@@ -539,22 +539,23 @@ OGRFeature* OGRWFSJoinLayer::GetNextFeature()
 {
     while( true )
     {
-        if (bPagingActive && nFeatureRead == nPagingStartIndex + nFeatureCountRequested)
+        if( bPagingActive &&
+            nFeatureRead == nPagingStartIndex + nFeatureCountRequested )
         {
-            bReloadNeeded = TRUE;
+            bReloadNeeded = true;
             nPagingStartIndex = nFeatureRead;
         }
-        if (bReloadNeeded)
+        if( bReloadNeeded )
         {
             GDALClose(poBaseDS);
             poBaseDS = NULL;
             poBaseLayer = NULL;
-            bHasFetched = FALSE;
-            bReloadNeeded = FALSE;
+            bHasFetched = false;
+            bReloadNeeded = false;
         }
-        if (poBaseDS == NULL && !bHasFetched)
+        if( poBaseDS == NULL && !bHasFetched )
         {
-            bHasFetched = TRUE;
+            bHasFetched = true;
             poBaseDS = FetchGetFeature();
             if (poBaseDS)
             {
@@ -579,7 +580,7 @@ OGRFeature* OGRWFSJoinLayer::GetNextFeature()
         for(int i=0;i<(int)aoSrcFieldNames.size();i++)
         {
             int iSrcField = poSrcFeature->GetFieldIndex(aoSrcFieldNames[i]);
-            if( iSrcField >= 0 && poSrcFeature->IsFieldSet(iSrcField) )
+            if( iSrcField >= 0 && poSrcFeature->IsFieldSetAndNotNull(iSrcField) )
             {
                 OGRFieldType eType = poFeatureDefn->GetFieldDefn(i)->GetType();
                 if( eType == poSrcFeature->GetFieldDefnRef(iSrcField)->GetType() )

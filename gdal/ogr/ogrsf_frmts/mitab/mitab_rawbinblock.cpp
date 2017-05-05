@@ -28,56 +28,30 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
- **********************************************************************
- *
- * $Log: mitab_rawbinblock.cpp,v $
- * Revision 1.11  2007-06-11 14:40:03  dmorissette
- * Fixed another issue related to attempting to read past EOF while writing
- * collections (bug 1657)
- *
- * Revision 1.10  2007/02/22 18:35:53  dmorissette
- * Fixed problem writing collections where MITAB was sometimes trying to
- * read past EOF in write mode (bug 1657).
- *
- * Revision 1.9  2006/11/28 18:49:08  dmorissette
- * Completed changes to split TABMAPObjectBlocks properly and produce an
- * optimal spatial index (bug 1585)
- *
- * Revision 1.8  2005/10/06 19:15:31  dmorissette
- * Collections: added support for reading/writing pen/brush/symbol ids and
- * for writing collection objects to .TAB/.MAP (bug 1126)
- *
- * Revision 1.7  2004/12/01 18:25:03  dmorissette
- * Fixed potential memory leaks in error conditions (bug 881)
- *
- * Revision 1.6  2004/06/30 20:29:04  dmorissette
- * Fixed refs to old address danmo@videotron.ca
- *
- * Revision 1.5  2000/02/28 17:06:06  daniel
- * Added m_bModified flag
- *
- * Revision 1.4  2000/01/15 22:30:45  daniel
- * Switch to MIT/X-Consortium OpenSource license
- *
- * Revision 1.3  1999/09/26 14:59:37  daniel
- * Implemented write support
- *
- * Revision 1.2  1999/09/16 02:39:17  daniel
- * Completed read support for most feature types
- *
- * Revision 1.1  1999/07/12 04:18:25  daniel
- * Initial checkin
- *
  **********************************************************************/
 
+#include "cpl_port.h"
 #include "mitab.h"
+
+#include <cctype>
+#include <cstddef>
+#include <cstdio>
+#include <cstring>
+#if HAVE_FCNTL_H
+#  include <fcntl.h>
+#endif
+#include <algorithm>
+
+#include "cpl_conv.h"
+#include "cpl_error.h"
+#include "cpl_vsi.h"
+#include "mitab_priv.h"
 
 CPL_CVSID("$Id$");
 
 /*=====================================================================
  *                      class TABRawBinBlock
  *====================================================================*/
-
 
 /**********************************************************************
  *                   TABRawBinBlock::TABRawBinBlock()
@@ -110,7 +84,6 @@ TABRawBinBlock::~TABRawBinBlock()
     if (m_pabyBuf)
         CPLFree(m_pabyBuf);
 }
-
 
 /**********************************************************************
  *                   TABRawBinBlock::ReadFromFile()
@@ -164,7 +137,6 @@ int     TABRawBinBlock::ReadFromFile(VSILFILE *fpSrc, int nOffset,
     return InitBlockFromData(pabyBuf, nSize, m_nSizeUsed,
                              FALSE, fpSrc, nOffset);
 }
-
 
 /**********************************************************************
  *                   TABRawBinBlock::CommitToFile()
@@ -232,7 +204,6 @@ int     TABRawBinBlock::CommitToFile()
 
         if (nCurPos != m_nFileOffset)
             nStatus = -1; // Error message will follow below
-
     }
 
     /*----------------------------------------------------------------
@@ -420,7 +391,6 @@ int     TABRawBinBlock::InitNewBlock(VSILFILE *fpSrc, int nBlockSize,
     return 0;
 }
 
-
 /**********************************************************************
  *                   TABRawBinBlock::GetBlockType()
  *
@@ -477,7 +447,7 @@ int     TABRawBinBlock::GotoByteInBlock(int nOffset)
 
     m_nCurPos = nOffset;
 
-    m_nSizeUsed = MAX(m_nSizeUsed, m_nCurPos);
+    m_nSizeUsed = std::max(m_nSizeUsed, m_nCurPos);
 
     return 0;
 }
@@ -632,11 +602,10 @@ int     TABRawBinBlock::GotoByteInFile(int nOffset,
 
     m_nCurPos = nOffset-m_nFileOffset;
 
-    m_nSizeUsed = MAX(m_nSizeUsed, m_nCurPos);
+    m_nSizeUsed = std::max(m_nSizeUsed, m_nCurPos);
 
     return 0;
 }
-
 
 /**********************************************************************
  *                   TABRawBinBlock::SetFirstBlockPtr()
@@ -654,7 +623,6 @@ void  TABRawBinBlock::SetFirstBlockPtr(int nOffset)
     m_nFirstBlockPtr = nOffset;
 }
 
-
 /**********************************************************************
  *                   TABRawBinBlock::GetNumUnusedBytes()
  *
@@ -662,7 +630,7 @@ void  TABRawBinBlock::SetFirstBlockPtr(int nOffset)
  **********************************************************************/
 int     TABRawBinBlock::GetNumUnusedBytes()
 {
-    return (m_nBlockSize - m_nSizeUsed);
+    return m_nBlockSize - m_nSizeUsed;
 }
 
 /**********************************************************************
@@ -686,7 +654,7 @@ int     TABRawBinBlock::GetFirstUnusedByteOffset()
  **********************************************************************/
 int     TABRawBinBlock::GetCurAddress()
 {
-    return (m_nFileOffset + m_nCurPos);
+    return m_nFileOffset + m_nCurPos;
 }
 
 /**********************************************************************
@@ -800,8 +768,6 @@ double  TABRawBinBlock::ReadDouble()
     return dValue;
 }
 
-
-
 /**********************************************************************
  *                   TABRawBinBlock::WriteBytes()
  *
@@ -854,13 +820,12 @@ int  TABRawBinBlock::WriteBytes(int nBytesToWrite, const GByte *pabySrcBuf)
 
     m_nCurPos += nBytesToWrite;
 
-    m_nSizeUsed = MAX(m_nSizeUsed, m_nCurPos);
+    m_nSizeUsed = std::max(m_nSizeUsed, m_nCurPos);
 
     m_bModified = TRUE;
 
     return 0;
 }
-
 
 /**********************************************************************
  *                    TABRawBinBlock::Write<datatype>()
@@ -914,7 +879,6 @@ int  TABRawBinBlock::WriteDouble(double dValue)
     return WriteBytes(8, (GByte*)&dValue);
 }
 
-
 /**********************************************************************
  *                    TABRawBinBlock::WriteZeros()
  *
@@ -933,7 +897,7 @@ int  TABRawBinBlock::WriteZeros(int nBytesToWrite)
     // Write by 8 bytes chunks.  The last chunk may be less than 8 bytes.
     for( int i = 0; nStatus == 0 && i< nBytesToWrite; i += 8 )
     {
-        nStatus = WriteBytes(MIN(8, (nBytesToWrite-i)), (GByte*)acZeros);
+        nStatus = WriteBytes(std::min(8, nBytesToWrite - i), (GByte*)acZeros);
     }
 
     return nStatus;
@@ -956,7 +920,7 @@ int  TABRawBinBlock::WritePaddedString(int nFieldSize, const char *pszString)
     int nStatus = 0;
 
     nLen = static_cast<int>(strlen(pszString));
-    nLen = MIN(nLen, nFieldSize);
+    nLen = std::min(nLen, nFieldSize);
     numSpaces = nFieldSize - nLen;
 
     if (nLen > 0)
@@ -966,7 +930,7 @@ int  TABRawBinBlock::WritePaddedString(int nFieldSize, const char *pszString)
      */
     for(i=0; nStatus == 0 && i< numSpaces; i+=8)
     {
-        nStatus = WriteBytes(MIN(8,(numSpaces-i)), (GByte*)acSpaces);
+        nStatus = WriteBytes(std::min(8, numSpaces - i), (GByte*)acSpaces);
     }
 
     return nStatus;
@@ -1013,7 +977,6 @@ void TABRawBinBlock::Dump(FILE *fpOut /*=NULL*/)
 
 #endif // DEBUG
 
-
 /**********************************************************************
  *                          DumpBytes()
  *
@@ -1052,13 +1015,11 @@ void TABRawBinBlock::DumpBytes(GInt32 nValue, int nOffset /*=0*/,
                     nOffset, nValue, nValue,
                     n16Val1, n16Val2, fValue, dValue);
 
-    printf("\t[%c%c%c%c]\n", isprint(pcValue[0])?pcValue[0]:'.',
+    fprintf(fpOut, "\t[%c%c%c%c]\n", isprint(pcValue[0])?pcValue[0]:'.',
                              isprint(pcValue[1])?pcValue[1]:'.',
                              isprint(pcValue[2])?pcValue[2]:'.',
                              isprint(pcValue[3])?pcValue[3]:'.');
 }
-
-
 
 /**********************************************************************
  *                   TABCreateMAPBlockFromFile()
@@ -1150,7 +1111,6 @@ TABRawBinBlock *TABCreateMAPBlockFromFile(VSILFILE *fpSrc, int nOffset,
 /*=====================================================================
  *                      class TABBinBlockManager
  *====================================================================*/
-
 
 /**********************************************************************
  *                   TABBinBlockManager::TABBinBlockManager()

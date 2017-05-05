@@ -34,7 +34,6 @@
 
 CPL_CVSID("$Id$");
 
-
 /************************************************************************/
 /*                     S57GenerateGeomFeatureDefn()                     */
 /************************************************************************/
@@ -268,6 +267,15 @@ S57GenerateVectorPrimitiveFeatureDefn( int nRCNM,
     poFDefn->AddFieldDefn( &oField );
 
 /* -------------------------------------------------------------------- */
+/*      Geometric primitive attributes                                  */
+/* -------------------------------------------------------------------- */
+    oField.Set( "POSACC", OFTReal, 10, 2 );
+    poFDefn->AddFieldDefn( &oField );
+
+    oField.Set( "QUAPOS", OFTInteger, 2, 0 );
+    poFDefn->AddFieldDefn( &oField );
+
+/* -------------------------------------------------------------------- */
 /*      For lines we want to capture the point links for the first      */
 /*      and last nodes.                                                 */
 /* -------------------------------------------------------------------- */
@@ -423,7 +431,8 @@ OGRFeatureDefn *S57GenerateObjectClassDefn(
 /* -------------------------------------------------------------------- */
 /*      Do we need to add DEPTH attributes to soundings?                */
 /* -------------------------------------------------------------------- */
-    if( EQUAL(poClassContentExplorer->GetAcronym(), "SOUNDG")
+    const char* pszClassAcronym = poClassContentExplorer->GetAcronym();
+    if( pszClassAcronym != NULL && EQUAL(pszClassAcronym, "SOUNDG")
         && (nOptionFlags & S57M_ADD_SOUNDG_DEPTH) )
     {
         OGRFieldDefn oField( "DEPTH", OFTReal );

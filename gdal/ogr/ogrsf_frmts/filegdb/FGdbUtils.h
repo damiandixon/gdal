@@ -27,7 +27,6 @@
  * DEALINGS IN THE SOFTWARE.
  ****************************************************************************/
 
-
 #ifndef FGDB_UTILS_H_INCLUDED
 #define FGDB_UTILS_H_INCLUDED
 
@@ -47,7 +46,6 @@ std::string WStringToString(const std::wstring& s);
 bool GDBToOGRGeometry(std::string geoType, bool hasZ, bool hasM, OGRwkbGeometryType* pOut);
 bool OGRGeometryToGDB(OGRwkbGeometryType ogrType, std::string *gdbType, bool *hasZ, bool *hasM);
 
-
 bool GDBToOGRSpatialReference(const std::string & wkt, OGRSpatialReference** ppSR);
 
 // Feature mapping
@@ -60,7 +58,7 @@ bool GhettoGDBGeometryToOGRGeometry(bool forceMulti, FileGDBAPI::ShapeBuffer* pG
 //
 // GDB API to OGR Field Mapping
 //
-bool GDBToOGRFieldType(std::string gdbType, OGRFieldType* ogrType, OGRFieldSubType* pSubType);
+bool GDBToOGRFieldType(const std::string& gdbType, OGRFieldType* ogrType, OGRFieldSubType* pSubType);
 bool OGRToGDBFieldType(OGRFieldType ogrType, OGRFieldSubType eSubType, std::string* gdbType);
 
 //
@@ -82,8 +80,8 @@ void FGDB_CPLAddXMLAttribute(CPLXMLNode* node, const char* attrname, const char*
 //
 // Utility for escaping reserved words and cleaning field names
 //
-std::string FGDBLaunderName(const std::string name);
-std::string FGDBEscapeUnsupportedPrefixes(const std::string className);
-std::string FGDBEscapeReservedKeywords(const std::string name);
+std::string FGDBLaunderName(const std::string& name);
+std::string FGDBEscapeUnsupportedPrefixes(const std::string& className);
+std::string FGDBEscapeReservedKeywords(const std::string& name);
 
 #endif

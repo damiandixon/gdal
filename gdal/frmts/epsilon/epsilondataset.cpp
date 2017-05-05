@@ -29,14 +29,13 @@
 #include "gdal_frmts.h"
 #include "gdal_pam.h"
 
-
 #ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunknown-pragmas"
 #pragma clang diagnostic ignored "-Wdocumentation"
 #endif
 #include "epsilon.h"
-#ifdef __clang
+#ifdef __clang__
 #pragma clang diagnostic pop
 #endif
 
@@ -122,8 +121,8 @@ class EpsilonRasterBand : public GDALPamRasterBand
   public:
                             EpsilonRasterBand(EpsilonDataset* poDS, int nBand);
 
-    virtual CPLErr          IReadBlock( int, int, void * );
-    virtual GDALColorInterp GetColorInterpretation();
+    virtual CPLErr          IReadBlock( int, int, void * ) override;
+    virtual GDALColorInterp GetColorInterpretation() override;
 };
 
 /************************************************************************/
@@ -684,7 +683,6 @@ GDALDataset* EpsilonDataset::Open(GDALOpenInfo* poOpenInfo)
     return poDS;
 }
 
-
 /************************************************************************/
 /*                  EpsilonDatasetCreateCopy ()                         */
 /************************************************************************/
@@ -865,16 +863,19 @@ EpsilonDatasetCreateCopy( const char * pszFilename, GDALDataset *poSrcDS,
 /*      Iterate over blocks                                             */
 /* -------------------------------------------------------------------- */
 
-    int nBlockXOff, nBlockYOff;
+    int nBlockXOff;
+    int nBlockYOff;
     CPLErr eErr = CE_None;
-    for(nBlockYOff = 0;
-        eErr == CE_None && nBlockYOff < nYBlocks; nBlockYOff ++)
+    for( nBlockYOff = 0;
+         eErr == CE_None && nBlockYOff < nYBlocks;
+         nBlockYOff++ )
     {
         for(nBlockXOff = 0;
             eErr == CE_None && nBlockXOff < nXBlocks; nBlockXOff ++)
         {
             int bMustMemset = FALSE;
-            int nReqXSize = nBlockXSize, nReqYSize = nBlockYSize;
+            int nReqXSize = nBlockXSize;
+            int nReqYSize = nBlockYSize;
             if ((nBlockXOff+1) * nBlockXSize > nXSize)
             {
                 bMustMemset = TRUE;

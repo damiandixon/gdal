@@ -109,10 +109,9 @@ class GS7BGDataset : public GDALPamDataset
                     GDALProgressFunc pfnProgress,
                     void *pProgressData );
 
-    CPLErr GetGeoTransform( double *padfGeoTransform );
-    CPLErr SetGeoTransform( double *padfGeoTransform );
+    CPLErr GetGeoTransform( double *padfGeoTransform ) override;
+    CPLErr SetGeoTransform( double *padfGeoTransform ) override;
 };
-
 
 const size_t GS7BGDataset::nHEADER_SIZE = 100;
 
@@ -152,12 +151,12 @@ class GS7BGRasterBand : public GDALPamRasterBand
     GS7BGRasterBand( GS7BGDataset *, int );
     ~GS7BGRasterBand();
 
-    CPLErr IReadBlock( int, int, void * );
-    CPLErr IWriteBlock( int, int, void * );
-    double GetMinimum( int *pbSuccess = NULL );
-    double GetMaximum( int *pbSuccess = NULL );
+    CPLErr IReadBlock( int, int, void * ) override;
+    CPLErr IWriteBlock( int, int, void * ) override;
+    double GetMinimum( int *pbSuccess = NULL ) override;
+    double GetMaximum( int *pbSuccess = NULL ) override;
 
-    double GetNoDataValue( int *pbSuccess = NULL );
+    double GetNoDataValue( int *pbSuccess = NULL ) override;
 };
 
 /************************************************************************/
@@ -1094,7 +1093,6 @@ CPLErr GS7BGDataset::WriteHeader( VSILFILE *fp, GInt32 nXSize, GInt32 nYSize,
             "Unable to write data size to grid file.\n" );
         return CE_Failure;
     }
-
 
     return CE_None;
 }

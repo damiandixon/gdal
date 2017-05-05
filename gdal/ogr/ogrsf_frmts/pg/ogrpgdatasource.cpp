@@ -70,7 +70,9 @@ OGRPGDataSource::OGRPGDataSource() :
     bListAllTables(FALSE),
     bUseBinaryCursor(FALSE),
     bBinaryTimeFormatIsInt8(FALSE),
-    bUseEscapeStringSyntax(FALSE)
+    bUseEscapeStringSyntax(FALSE),
+    m_bHasGeometryColumns(true),
+    m_bHasSpatialRefSys(true)
 {
     sPostgreSQLVersion.nMajor = 0;
     sPostgreSQLVersion.nMinor = 0;
@@ -205,7 +207,6 @@ void OGRPGDataSource::OGRPGDecodeVersionString(PGver* psVersion, const char* psz
     szNum[iLen] = '\0';
     psVersion->nMinor = atoi(szNum);
 
-
     if ( *ptr )
     {
         pszVer = ++ptr;
@@ -218,14 +219,11 @@ void OGRPGDataSource::OGRPGDecodeVersionString(PGver* psVersion, const char* psz
         szNum[iLen] = '\0';
         psVersion->nRelease = atoi(szNum);
     }
-
 }
-
 
 /************************************************************************/
 /*                     One entry for each PG table                      */
 /************************************************************************/
-
 
 typedef struct
 {
@@ -292,8 +290,7 @@ static void OGRPGFreeTableEntry(void * _psTableEntry)
     CPLFree(psTableEntry->pszTableName);
     CPLFree(psTableEntry->pszSchemaName);
     CPLFree(psTableEntry->pszDescription);
-    int i;
-    for(i=0;i<psTableEntry->nGeomColumnCount;i++)
+    for( int i = 0; i < psTableEntry->nGeomColumnCount; i++ )
     {
         CPLFree(psTableEntry->pasGeomColumns[i].pszName);
         CPLFree(psTableEntry->pasGeomColumns[i].pszGeomType);
@@ -378,7 +375,7 @@ int OGRPGDataSource::Open( const char * pszNewName, int bUpdate,
         const char* pszVal = CSLFetchNameValue(papszOpenOptions, apszOpenOptions[i]);
         if( pszVal )
         {
-            if( osConnectionName[osConnectionName.size()-1] != ':' )
+            if( osConnectionName.back() != ':' )
                 osConnectionName += " ";
             osConnectionName += apszOpenOptions[i];
             osConnectionName += "=";
@@ -387,7 +384,6 @@ int OGRPGDataSource::Open( const char * pszNewName, int bUpdate,
     }
 
     char* pszConnectionName = CPLStrdup(osConnectionName);
-
 
 /* -------------------------------------------------------------------- */
 /*      Determine if the connection string contains an optional         */
@@ -481,7 +477,6 @@ int OGRPGDataSource::Open( const char * pszNewName, int bUpdate,
 
         pszForcedTables[pszEnd - pszTableStart - 7] = '\0';
     }
-
 
 /* -------------------------------------------------------------------- */
 /*      Try to establish connection.                                    */
@@ -644,7 +639,7 @@ int OGRPGDataSource::Open( const char * pszNewName, int bUpdate,
 /* -------------------------------------------------------------------- */
 /*      Test if time binary format is int8 or float8                    */
 /* -------------------------------------------------------------------- */
-#if !defined(PG_PRE74) && defined(BINARY_CURSOR_ENABLED)
+#if defined(BINARY_CURSOR_ENABLED)
     if (bUseBinaryCursor)
     {
         SoftStartTransaction();
@@ -758,10 +753,8 @@ int OGRPGDataSource::Open( const char * pszNewName, int bUpdate,
             CPLDebug("PG","PostGIS version string : '%s'", pszVer);
 
             OGRPGDecodeVersionString(&sPostGISVersion, pszVer);
-
         }
         OGRPGClearResult(hResult);
-
 
         if (sPostGISVersion.nMajor == 0 && sPostGISVersion.nMinor < 8)
         {
@@ -778,6 +771,9 @@ int OGRPGDataSource::Open( const char * pszNewName, int bUpdate,
         }
         OGRPGClearResult( hResult );
     }
+
+    m_bHasGeometryColumns = OGRPG_Check_Table_Exists(hPGConn, "geometry_columns");
+    m_bHasSpatialRefSys = OGRPG_Check_Table_Exists(hPGConn, "spatial_ref_sys");
 
 /* -------------------------------------------------------------------- */
 /*      Find out "unknown SRID" value                                   */
@@ -1406,7 +1402,7 @@ OGRErr OGRPGDataSource::DeleteLayer( int iLayer )
              sizeof(void *) * (nLayers - iLayer - 1) );
     nLayers--;
 
-    if (osLayerName.size() == 0)
+    if (osLayerName.empty())
         return OGRERR_NONE;
 
 /* -------------------------------------------------------------------- */
@@ -1528,7 +1524,6 @@ OGRPGDataSource::ICreateLayer( const char * pszLayerName,
     if (bNoneAsUnknown && eType == wkbNone)
         eType = wkbUnknown;
 
-
     int bExtractSchemaFromLayerName = CPLTestBool(CSLFetchNameValueDef(
                                     papszOptions, "EXTRACT_SCHEMA_FROM_LAYER_NAME", "YES"));
 
@@ -1581,7 +1576,7 @@ OGRPGDataSource::ICreateLayer( const char * pszLayerName,
 
     CPLString osSQLLayerName;
     if (pszSchemaName == NULL ||
-        ( strlen(osCurrentSchema) > 0 &&
+        ( !osCurrentSchema.empty() &&
           EQUAL(pszSchemaName, osCurrentSchema.c_str() ) ) )
         osSQLLayerName = pszTableName;
     else
@@ -1986,6 +1981,8 @@ int OGRPGDataSource::TestCapability( const char * pszCap )
         return TRUE;
     else if ( EQUAL(pszCap,ODsCMeasuredGeometries) )
         return TRUE;
+    else if( EQUAL(pszCap,ODsCRandomLayerWrite) )
+        return TRUE;
     else
         return FALSE;
 }
@@ -2118,7 +2115,6 @@ OGRLayer *OGRPGDataSource::GetLayerByName( const char *pszNameIn )
     return poLayer;
 }
 
-
 /************************************************************************/
 /*                        OGRPGNoticeProcessor()                        */
 /************************************************************************/
@@ -2153,7 +2149,7 @@ OGRErr OGRPGDataSource::InitializeMetadataTables()
 OGRSpatialReference *OGRPGDataSource::FetchSRS( int nId )
 
 {
-    if( nId < 0 )
+    if( nId < 0 || !m_bHasSpatialRefSys )
         return NULL;
 
 /* -------------------------------------------------------------------- */
@@ -2225,10 +2221,11 @@ OGRSpatialReference *OGRPGDataSource::FetchSRS( int nId )
 int OGRPGDataSource::FetchSRSId( OGRSpatialReference * poSRS )
 
 {
-    if( poSRS == NULL )
+    if( poSRS == NULL || !m_bHasSpatialRefSys )
         return nUndefinedSRID;
 
     OGRSpatialReference oSRS(*poSRS);
+    // cppcheck-suppress uselessAssignmentPtrArg
     poSRS = NULL;
 
     const char* pszAuthorityName = oSRS.GetAuthorityName(NULL);
@@ -2679,16 +2676,15 @@ class OGRPGNoResetResultLayer : public OGRPGLayer
 
     virtual             ~OGRPGNoResetResultLayer();
 
-    virtual void        ResetReading();
+    virtual void        ResetReading() override;
 
-    virtual int         TestCapability( const char * ) { return FALSE; }
+    virtual int         TestCapability( const char * ) override { return FALSE; }
 
-    virtual OGRFeature *GetNextFeature();
+    virtual OGRFeature *GetNextFeature() override;
 
-    virtual CPLString   GetFromClauseForGetExtent() { CPLAssert(false); return ""; }
-    virtual void        ResolveSRID(OGRPGGeomFieldDefn* poGFldDefn) { poGFldDefn->nSRSId = -1; }
+    virtual CPLString   GetFromClauseForGetExtent() override { CPLAssert(false); return ""; }
+    virtual void        ResolveSRID(OGRPGGeomFieldDefn* poGFldDefn) override { poGFldDefn->nSRSId = -1; }
 };
-
 
 /************************************************************************/
 /*                     OGRPGNoResetResultLayer()                        */
@@ -2754,7 +2750,7 @@ class OGRPGMemLayerWrapper : public OGRLayer
       OGRLayer       *poMemLayer;
 
   public:
-                        OGRPGMemLayerWrapper( GDALDataset  *poMemDSIn )
+                        explicit OGRPGMemLayerWrapper( GDALDataset  *poMemDSIn )
                         {
                             poMemDS = poMemDSIn;
                             poMemLayer = poMemDS->GetLayer(0);
@@ -2762,10 +2758,10 @@ class OGRPGMemLayerWrapper : public OGRLayer
 
                         virtual ~OGRPGMemLayerWrapper() { delete poMemDS; }
 
-    virtual void        ResetReading() { poMemLayer->ResetReading(); }
-    virtual OGRFeature *GetNextFeature() { return poMemLayer->GetNextFeature(); }
-    virtual OGRFeatureDefn *GetLayerDefn() { return poMemLayer->GetLayerDefn(); }
-    virtual int         TestCapability( const char * ) { return FALSE; }
+    virtual void        ResetReading() override { poMemLayer->ResetReading(); }
+    virtual OGRFeature *GetNextFeature() override { return poMemLayer->GetNextFeature(); }
+    virtual OGRFeatureDefn *GetLayerDefn() override { return poMemLayer->GetLayerDefn(); }
+    virtual int         TestCapability( const char * ) override { return FALSE; }
 };
 
 /************************************************************************/
@@ -2793,11 +2789,9 @@ const char* OGRPGDataSource::GetMetadataItem(const char* pszKey,
             osDebugLastTransactionCommand = "";
             return pszRet;
         }
-
     }
     return OGRDataSource::GetMetadataItem(pszKey, pszDomain);
 }
-
 
 /************************************************************************/
 /*                             ExecuteSQL()                             */

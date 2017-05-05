@@ -71,7 +71,6 @@ OGRMySQLTableLayer::~OGRMySQLTableLayer()
     CPLFree( pszWHERE );
 }
 
-
 /************************************************************************/
 /*                        Initialize()                                  */
 /*                                                                      */
@@ -155,7 +154,6 @@ OGRFeatureDefn *OGRMySQLTableLayer::ReadTableDefinition( const char *pszTable )
                  || (nLenType>=3 && EQUAL(pszType+nLenType-3,"set")) )
         {
             oField.SetType( OFTString );
-
         }
         else if( STARTS_WITH_CI(pszType, "char")  )
         {
@@ -171,7 +169,6 @@ OGRFeatureDefn *OGRMySQLTableLayer::ReadTableDefinition( const char *pszTable )
 
             CSLDestroy( papszTokens );
             oField.SetType( OFTString );
-
         }
 
         if(nLenType>=4 && EQUAL(pszType+nLenType-4,"text"))
@@ -235,8 +232,6 @@ OGRFeatureDefn *OGRMySQLTableLayer::ReadTableDefinition( const char *pszTable )
                 oField.SetPrecision(atoi(papszTokens[2]));
             }
             CSLDestroy( papszTokens );
-
-
         }
         else if( STARTS_WITH_CI(pszType, "float") )
         {
@@ -408,7 +403,6 @@ OGRFeatureDefn *OGRMySQLTableLayer::ReadTableDefinition( const char *pszTable )
                 l_nGeomType = wkbSetZ(l_nGeomType);
 
             poDefn->SetGeomType( l_nGeomType );
-
         }
         else if (eForcedGeomType != wkbUnknown)
             poDefn->SetGeomType(eForcedGeomType);
@@ -440,8 +434,6 @@ void OGRMySQLTableLayer::SetSpatialFilter( OGRGeometry * poGeomIn )
 
     ResetReading();
 }
-
-
 
 /************************************************************************/
 /*                             BuildWhere()                             */
@@ -476,10 +468,10 @@ void OGRMySQLTableLayer::BuildWhere()
                 sEnvelope.MinX, sEnvelope.MinY);
 
         snprintf( pszWHERE, nWHERELen,
-                 "WHERE MBRIntersects(GeomFromText('%s'), `%s`)",
+                 "WHERE MBRIntersects(GeomFromText('%s', '%d'), `%s`)",
                  szEnvelope,
+                 nSRSId,
                  pszGeomColumn);
-
     }
 
     if( pszQuery != NULL )
@@ -684,7 +676,6 @@ OGRErr OGRMySQLTableLayer::DeleteFeature( GIntBig nFID )
     MYSQL_RES           *hResult=NULL;
     CPLString           osCommand;
 
-
 /* -------------------------------------------------------------------- */
 /*      We can only delete features if we have a well defined FID       */
 /*      column to target.                                               */
@@ -696,7 +687,6 @@ OGRErr OGRMySQLTableLayer::DeleteFeature( GIntBig nFID )
                   "in tables without\n a recognised FID column.",
                   nFID );
         return OGRERR_FAILURE;
-
     }
 
 /* -------------------------------------------------------------------- */
@@ -722,7 +712,6 @@ OGRErr OGRMySQLTableLayer::DeleteFeature( GIntBig nFID )
 
     return mysql_affected_rows( poDS->GetConn() ) > 0 ? OGRERR_NONE : OGRERR_NON_EXISTING_FEATURE;
 }
-
 
 /************************************************************************/
 /*                       ICreateFeature()                                */
@@ -792,7 +781,7 @@ OGRErr OGRMySQLTableLayer::ICreateFeature( OGRFeature *poFeature )
                 CPLString().Printf(
                     "GeometryFromText('%s',%d) ", pszWKT, nSRSId );
 
-            OGRFree( pszWKT );
+            CPLFree( pszWKT );
         }
         else
             osCommand += "''";
@@ -843,7 +832,11 @@ OGRErr OGRMySQLTableLayer::ICreateFeature( OGRFeature *poFeature )
 
         const char *pszStrValue = poFeature->GetFieldAsString(i);
 
-        if( poFeatureDefn->GetFieldDefn(i)->GetType() != OFTInteger
+        if( poFeature->IsFieldNull(i) )
+        {
+            osCommand += "NULL";
+        }
+        else if( poFeatureDefn->GetFieldDefn(i)->GetType() != OFTInteger
                  && poFeatureDefn->GetFieldDefn(i)->GetType() != OFTInteger64
                  && poFeatureDefn->GetFieldDefn(i)->GetType() != OFTReal
                  && poFeatureDefn->GetFieldDefn(i)->GetType() != OFTBinary )
@@ -893,7 +886,6 @@ OGRErr OGRMySQLTableLayer::ICreateFeature( OGRFeature *poFeature )
         {
             osCommand += pszStrValue;
         }
-
     }
 
     osCommand += ")";
@@ -937,8 +929,8 @@ OGRErr OGRMySQLTableLayer::ICreateFeature( OGRFeature *poFeature )
     hResult = NULL;
 
     return OGRERR_NONE;
-
 }
+
 /************************************************************************/
 /*                            CreateField()                             */
 /************************************************************************/
@@ -1076,7 +1068,6 @@ OGRErr OGRMySQLTableLayer::CreateField( OGRFieldDefn *poFieldIn, int bApproxOK )
 
     return OGRERR_NONE;
 }
-
 
 /************************************************************************/
 /*                             GetFeature()                             */
@@ -1289,5 +1280,5 @@ OGRErr OGRMySQLTableLayer::GetExtent(OGREnvelope *psExtent, CPL_UNUSED int bForc
         mysql_free_result(result);
     }
 
-    return (bExtentSet ? OGRERR_NONE : OGRERR_FAILURE);
+    return bExtentSet ? OGRERR_NONE : OGRERR_FAILURE;
 }

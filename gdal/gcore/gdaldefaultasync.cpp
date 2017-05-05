@@ -27,7 +27,15 @@
  * DEALINGS IN THE SOFTWARE.
  ****************************************************************************/
 
+#include "cpl_port.h"
 #include "gdal_priv.h"
+
+#include <cstring>
+
+#include "cpl_conv.h"
+#include "cpl_error.h"
+#include "cpl_string.h"
+#include "gdal.h"
 
 CPL_CVSID("$Id$");
 
@@ -124,7 +132,6 @@ GDALAsyncReader::~GDALAsyncReader()
 /*                     GDALARGetNextUpdatedRegion()                     */
 /************************************************************************/
 
-
 /**
  * \brief Get async IO update
  *
@@ -203,7 +210,6 @@ int GDALAsyncReader::LockBuffer( double /* dfTimeout */ )
     return TRUE;
 }
 
-
 /************************************************************************/
 /*                          GDALARLockBuffer()                          */
 /************************************************************************/
@@ -251,7 +257,6 @@ void GDALAsyncReader::UnlockBuffer()
 /*                          GDALARUnlockBuffer()                        */
 /************************************************************************/
 
-
 /**
  * \brief Unlock image buffer.
  *
@@ -295,7 +300,7 @@ class GDALDefaultAsyncReader : public GDALAsyncReader
                                                      int* pnBufXOff,
                                                      int* pnBufYOff,
                                                      int* pnBufXSize,
-                                                     int* pnBufYSize);
+                                                     int* pnBufYSize) override;
 };
 
 /************************************************************************/

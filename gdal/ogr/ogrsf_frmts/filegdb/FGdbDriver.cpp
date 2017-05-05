@@ -52,14 +52,13 @@ FGdbDriver::FGdbDriver(): OGRSFDriver(), hMutex(NULL)
 FGdbDriver::~FGdbDriver()
 
 {
-    if( oMapConnections.size() != 0 )
+    if( !oMapConnections.empty() )
         CPLDebug("FileGDB", "Remaining %d connections. Bug?",
                  (int)oMapConnections.size());
     if( hMutex != NULL )
         CPLDestroyMutex(hMutex);
     hMutex = NULL;
 }
-
 
 /************************************************************************/
 /*                              GetName()                               */
@@ -286,7 +285,7 @@ OGRErr FGdbDriver::StartTransaction(OGRDataSource*& poDSInOut, int& bOutHasReope
 
     CPLString osName(poMutexedDS->GetName());
     CPLString osNameOri(osName);
-    if( osName[osName.size()-1] == '/' || osName[osName.size()-1] == '\\' )
+    if( osName.back()== '/' || osName.back()== '\\' )
         osName.resize(osName.size()-1);
 
 #ifndef WIN32
@@ -427,7 +426,6 @@ OGRErr FGdbDriver::CommitTransaction(OGRDataSource*& poDSInOut, int& bOutHasReop
 
     bOutHasReopenedDS = FALSE;
 
-
     OGRMutexedDataSource* poMutexedDS = (OGRMutexedDataSource*)poDSInOut;
     FGdbDataSource* poDS = (FGdbDataSource* )poMutexedDS->GetBaseDataSource();
     FGdbDatabaseConnection* pConnection = poDS->GetConnection();
@@ -442,7 +440,7 @@ OGRErr FGdbDriver::CommitTransaction(OGRDataSource*& poDSInOut, int& bOutHasReop
 
     CPLString osName(poMutexedDS->GetName());
     CPLString osNameOri(osName);
-    if( osName[osName.size()-1] == '/' || osName[osName.size()-1] == '\\' )
+    if( osName.back()== '/' || osName.back()== '\\' )
         osName.resize(osName.size()-1);
 
 #ifndef WIN32
@@ -664,7 +662,7 @@ OGRErr FGdbDriver::RollbackTransaction(OGRDataSource*& poDSInOut, int& bOutHasRe
 
     CPLString osName(poMutexedDS->GetName());
     CPLString osNameOri(osName);
-    if( osName[osName.size()-1] == '/' || osName[osName.size()-1] == '\\' )
+    if( osName.back()== '/' || osName.back()== '\\' )
         osName.resize(osName.size()-1);
 
     //int bPerLayerCopyingForTransaction = poDS->HasPerLayerCopyingForTransaction();
@@ -791,9 +789,9 @@ OGRErr FGdbDriver::DeleteDataSource( const char *pszDataSource )
 
     std::wstring wstr = StringToWString(pszDataSource);
 
-    long hr;
+    long hr = 0;
 
-    if (S_OK != (hr = ::DeleteGeodatabase(wstr)))
+    if( S_OK != (hr = ::DeleteGeodatabase(wstr)) )
     {
         GDBErr(hr, "Failed to delete Geodatabase");
         return OGRERR_FAILURE;

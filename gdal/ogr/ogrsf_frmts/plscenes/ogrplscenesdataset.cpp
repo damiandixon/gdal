@@ -36,7 +36,7 @@ CPL_CVSID("$Id$");
 /************************************************************************/
 
 OGRPLScenesDataset::OGRPLScenesDataset() :
-    bMustCleanPersistent(FALSE),
+    bMustCleanPersistent(false),
     nLayers(0),
     papoLayers(NULL)
 {}
@@ -53,7 +53,6 @@ OGRPLScenesDataset::~OGRPLScenesDataset()
 
     if( bMustCleanPersistent )
     {
-
         char **papszOptions =
             CSLSetNameValue(NULL, "CLOSE_PERSISTENT",
                             CPLSPrintf("PLSCENES:%p", this));
@@ -66,7 +65,7 @@ OGRPLScenesDataset::~OGRPLScenesDataset()
 /*                              GetLayer()                              */
 /************************************************************************/
 
-OGRLayer *OGRPLScenesDataset::GetLayer(int idx)
+OGRLayer *OGRPLScenesDataset::GetLayer( int idx )
 {
     if( idx < 0 || idx >= nLayers )
         return NULL;
@@ -179,11 +178,15 @@ void OGRPLScenesDataset::ReleaseResultSet( OGRLayer * poResultsSet )
 
 char** OGRPLScenesDataset::GetBaseHTTPOptions()
 {
-    bMustCleanPersistent = TRUE;
+    bMustCleanPersistent = true;
 
     char** papszOptions = NULL;
-    papszOptions = CSLAddString(papszOptions, CPLSPrintf("PERSISTENT=PLSCENES:%p", this));
-    papszOptions = CSLAddString(papszOptions, CPLSPrintf("HEADERS=Authorization: api-key %s", osAPIKey.c_str()));
+    papszOptions =
+        CSLAddString(papszOptions, CPLSPrintf("PERSISTENT=PLSCENES:%p", this));
+    papszOptions =
+        CSLAddString(papszOptions,
+                     CPLSPrintf("HEADERS=Authorization: api-key %s",
+                                osAPIKey.c_str()));
     return papszOptions;
 }
 
@@ -195,6 +198,7 @@ json_object* OGRPLScenesDataset::RunRequest(const char* pszURL,
                                             int bQuiet404Error)
 {
     char** papszOptions = CSLAddString(GetBaseHTTPOptions(), NULL);
+    papszOptions = CSLSetNameValue(papszOptions, "MAX_RETRY", "3");
     CPLHTTPResult * psResult;
     if( STARTS_WITH(osBaseURL, "/vsimem/") &&
         STARTS_WITH(pszURL, "/vsimem/") )
@@ -251,21 +255,13 @@ json_object* OGRPLScenesDataset::RunRequest(const char* pszURL,
         return NULL;
     }
 
-    json_tokener* jstok = NULL;
     json_object* poObj = NULL;
-
-    jstok = json_tokener_new();
-    poObj = json_tokener_parse_ex(jstok, (const char*) psResult->pabyData, -1);
-    if( jstok->err != json_tokener_success)
+    const char* pszText = reinterpret_cast<const char*>(psResult->pabyData);
+    if( !OGRJSonParse(pszText, &poObj, true) )
     {
-        CPLError( CE_Failure, CPLE_AppDefined,
-                    "JSON parsing error: %s (at offset %d)",
-                    json_tokener_error_desc(jstok->err), jstok->char_offset);
-        json_tokener_free(jstok);
         CPLHTTPDestroyResult(psResult);
         return NULL;
     }
-    json_tokener_free(jstok);
 
     CPLHTTPDestroyResult(psResult);
 
@@ -316,7 +312,8 @@ GDALDataset* OGRPLScenesDataset::OpenRasterScene(GDALOpenInfo* poOpenInfo,
 
     CPLString osRasterURL;
     osRasterURL = osBaseURL;
-    osRasterURL += "ortho/";
+    osRasterURL += CSLFetchNameValueDef(poOpenInfo->papszOpenOptions, "CATALOG", "ortho");
+    osRasterURL += "/";
     osRasterURL += osScene;
     json_object* poObj = RunRequest( osRasterURL );
     if( poObj == NULL )
@@ -360,7 +357,7 @@ GDALDataset* OGRPLScenesDataset::OpenRasterScene(GDALOpenInfo* poOpenInfo,
     }
     osRasterURL = pszLink ? pszLink : "";
     json_object_put(poObj);
-    if( osRasterURL.size() == 0 )
+    if( osRasterURL.empty() )
     {
         CPLError(CE_Failure, CPLE_AppDefined, "Cannot find link to scene %s",
                  osScene.c_str());
@@ -377,14 +374,15 @@ GDALDataset* OGRPLScenesDataset::OpenRasterScene(GDALOpenInfo* poOpenInfo,
     }
 
     CPLString osOldHead(CPLGetConfigOption("CPL_VSIL_CURL_USE_HEAD", ""));
-    CPLString osOldExt(CPLGetConfigOption("CPL_VSIL_CURL_ALLOWED_EXTENSIONS", ""));
+    CPLString osOldAllowedFilename(CPLGetConfigOption("CPL_VSIL_CURL_ALLOWED_FILENAME", ""));
 
     const bool bUseVSICURL =
         CPLFetchBool(poOpenInfo->papszOpenOptions, "RANDOM_ACCESS", true);
     if( bUseVSICURL && !(STARTS_WITH(osBaseURL, "/vsimem/")) )
     {
         CPLSetThreadLocalConfigOption("CPL_VSIL_CURL_USE_HEAD", "NO");
-        CPLSetThreadLocalConfigOption("CPL_VSIL_CURL_ALLOWED_EXTENSIONS", "{noext}");
+        CPLSetThreadLocalConfigOption("CPL_VSIL_CURL_ALLOWED_FILENAME",
+                                      ("/vsicurl/" + osRasterURL).c_str());
 
         VSIStatBufL sStat;
         if( VSIStatL(("/vsicurl/" + osRasterURL).c_str(), &sStat) == 0 &&
@@ -398,7 +396,14 @@ GDALDataset* OGRPLScenesDataset::OpenRasterScene(GDALOpenInfo* poOpenInfo,
         }
     }
 
-    GDALDataset* poOutDS = (GDALDataset*) GDALOpen(osRasterURL, GA_ReadOnly);
+    char** papszAllowedDrivers = NULL;
+    papszAllowedDrivers = CSLAddString(papszAllowedDrivers, "HTTP");
+    papszAllowedDrivers = CSLAddString(papszAllowedDrivers, "GTiff");
+    papszAllowedDrivers = CSLAddString(papszAllowedDrivers, "PNG");
+    papszAllowedDrivers = CSLAddString(papszAllowedDrivers, "JPEG");
+    GDALDataset* poOutDS = (GDALDataset*) GDALOpenEx(osRasterURL, GDAL_OF_RASTER,
+                                                     papszAllowedDrivers, NULL, NULL);
+    CSLDestroy(papszAllowedDrivers);
     if( poOutDS )
     {
         if( !EQUAL(pszProductType, "thumb") )
@@ -420,7 +425,7 @@ GDALDataset* OGRPLScenesDataset::OpenRasterScene(GDALOpenInfo* poOpenInfo,
             {
                 for(int i=0;i<poFeat->GetFieldCount();i++)
                 {
-                    if( poFeat->IsFieldSet(i) )
+                    if( poFeat->IsFieldSetAndNotNull(i) )
                     {
                         const char* pszKey = poFeat->GetFieldDefnRef(i)->GetNameRef();
                         const char* pszVal = poFeat->GetFieldAsString(i);
@@ -448,9 +453,9 @@ GDALDataset* OGRPLScenesDataset::OpenRasterScene(GDALOpenInfo* poOpenInfo,
     if( bUseVSICURL )
     {
         CPLSetThreadLocalConfigOption("CPL_VSIL_CURL_USE_HEAD",
-                                    osOldHead.size() ? osOldHead.c_str(): NULL);
-        CPLSetThreadLocalConfigOption("CPL_VSIL_CURL_ALLOWED_EXTENSIONS",
-                                    osOldExt.size() ? osOldExt.c_str(): NULL);
+                                    !osOldHead.empty() ? osOldHead.c_str(): NULL);
+        CPLSetThreadLocalConfigOption("CPL_VSIL_CURL_ALLOWED_FILENAME",
+                                    !osOldAllowedFilename.empty() ? osOldAllowedFilename.c_str(): NULL);
     }
 
     return poOutDS;
@@ -467,12 +472,12 @@ GDALDataset* OGRPLScenesDataset::Open(GDALOpenInfo* poOpenInfo)
     poDS->osBaseURL = CPLGetConfigOption("PL_URL", "https://api.planet.com/v0/scenes/");
 
     char** papszOptions = CSLTokenizeStringComplex(
-            poOpenInfo->pszFilename+strlen("PLScenes:"), ",", TRUE, FALSE );
+        poOpenInfo->pszFilename+strlen("PLScenes:"), ",", TRUE, FALSE );
 
     poDS->osAPIKey = CSLFetchNameValueDef(papszOptions, "api_key",
         CSLFetchNameValueDef(poOpenInfo->papszOpenOptions, "API_KEY",
                                 CPLGetConfigOption("PL_API_KEY","")) );
-    if( poDS->osAPIKey.size() == 0 )
+    if( poDS->osAPIKey.empty() )
     {
         CPLError(CE_Failure, CPLE_AppDefined,
                  "Missing PL_API_KEY configuration option or API_KEY open option");

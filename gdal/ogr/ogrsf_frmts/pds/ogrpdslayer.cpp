@@ -31,6 +31,8 @@
 #include "cpl_string.h"
 #include "ogr_p.h"
 
+#include <algorithm>
+
 CPL_CVSID("$Id$");
 
 namespace OGRPDS {
@@ -62,7 +64,7 @@ OGRPDSLayer::OGRPDSLayer( CPLString osTableIDIn,
     poFeatureDefn->Reference();
     poFeatureDefn->SetGeomType( wkbNone );
 
-    if (osStructureFilename.size() != 0)
+    if (!osStructureFilename.empty())
     {
         ReadStructure(osStructureFilename);
     }
@@ -132,7 +134,6 @@ OGRPDSLayer::~OGRPDSLayer()
     VSIFCloseL( fpPDS );
 }
 
-
 /************************************************************************/
 /*                           ReadStructure()                            */
 /************************************************************************/
@@ -172,10 +173,10 @@ void OGRPDSLayer::ReadStructure(CPLString osStructureFilename)
         if (bInObjectColumn && nTokens >= 1 &&
             EQUAL(papszTokens[0], "END_OBJECT"))
         {
-            if (osColumnName.size() != 0 &&
-                osColumnDataType.size() != 0 &&
-                osColumnStartByte.size() != 0 &&
-                osColumnBytes.size() != 0)
+            if (!osColumnName.empty() &&
+                !osColumnDataType.empty() &&
+                !osColumnStartByte.empty() &&
+                !osColumnBytes.empty())
             {
                 pasFieldDesc =
                     static_cast<FieldDesc*>(
@@ -254,10 +255,10 @@ void OGRPDSLayer::ReadStructure(CPLString osStructureFilename)
 
                     OGRFieldDefn oFieldDefn(osColumnName, eFieldType);
                     if ((pasFieldDesc[nFields].eFormat == ASCII_REAL &&
-                            osColumnFormat.size() != 0 &&
+                            !osColumnFormat.empty() &&
                             osColumnFormat[0] == 'F') ||
                         (pasFieldDesc[nFields].eFormat == ASCII_INTEGER &&
-                            osColumnFormat.size() != 0 &&
+                            !osColumnFormat.empty() &&
                             osColumnFormat[0] == 'I'))
                     {
                         const char* pszFormat = osColumnFormat.c_str();
@@ -271,7 +272,7 @@ void OGRPDSLayer::ReadStructure(CPLString osStructureFilename)
                         }
                     }
                     else if (oFieldDefn.GetType() == OFTString &&
-                                osColumnFormat.size() != 0 &&
+                                !osColumnFormat.empty() &&
                                 osColumnFormat[0] == 'A')
                     {
                         const char* pszFormat = osColumnFormat.c_str();
@@ -424,7 +425,6 @@ void OGRPDSLayer::ReadStructure(CPLString osStructureFilename)
     VSIFCloseL(fpStructure);
 }
 
-
 /************************************************************************/
 /*                            ResetReading()                            */
 /************************************************************************/
@@ -435,7 +435,6 @@ void OGRPDSLayer::ResetReading()
     nNextFID = 0;
     VSIFSeekL( fpPDS, nStartBytes, SEEK_SET );
 }
-
 
 /************************************************************************/
 /*                           GetNextFeature()                           */
@@ -460,7 +459,6 @@ OGRFeature *OGRPDSLayer::GetNextFeature()
         delete poFeature;
     }
 }
-
 
 /************************************************************************/
 /*                         GetNextRawFeature()                          */
@@ -662,7 +660,7 @@ OGRFeature *OGRPDSLayer::GetNextRawFeature()
     {
         char **papszTokens = CSLTokenizeString2(
                 (const char*)pabyRecord, " ", CSLT_HONOURSTRINGS );
-        const int nTokens = MIN(CSLCount(papszTokens), nFieldCount);
+        const int nTokens = std::min(CSLCount(papszTokens), nFieldCount);
         for( int i = 0; i < nTokens; i++ )
         {
             poFeature->SetField(i, papszTokens[i]);

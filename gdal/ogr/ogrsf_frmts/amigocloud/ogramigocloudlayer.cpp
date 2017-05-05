@@ -96,7 +96,7 @@ OGRFeature *OGRAmigoCloudLayer::BuildFeature(json_object* poRowObj)
     {
         poFeature = new OGRFeature(poFeatureDefn);
 
-        if( osFIDColName.size() > 0 )
+        if( !osFIDColName.empty() )
         {
             json_object* poVal = CPL_json_object_object_get(poRowObj, osFIDColName);
             if( poVal != NULL &&
@@ -106,18 +106,19 @@ OGRFeature *OGRAmigoCloudLayer::BuildFeature(json_object* poRowObj)
                 OGRAmigoCloudFID aFID(amigo_id, iNext);
                 mFIDs[aFID.iFID] = aFID;
                 poFeature->SetFID(aFID.iFID);
-
             }
         }
-
 
         for(int i=0;i<poFeatureDefn->GetFieldCount();i++)
         {
             json_object* poVal = CPL_json_object_object_get(poRowObj,
                             poFeatureDefn->GetFieldDefn(i)->GetNameRef());
 
-            if( poVal != NULL &&
-                json_object_get_type(poVal) == json_type_string )
+            if( poVal == NULL )
+            {
+                poFeature->SetFieldNull(i);
+            }
+            else if( json_object_get_type(poVal) == json_type_string )
             {
                 if( poFeatureDefn->GetFieldDefn(i)->GetType() == OFTDateTime )
                 {
@@ -133,14 +134,12 @@ OGRFeature *OGRAmigoCloudLayer::BuildFeature(json_object* poRowObj)
                     poFeature->SetField(i, json_object_get_string(poVal));
                 }
             }
-            else if( poVal != NULL &&
-                (json_object_get_type(poVal) == json_type_int ||
-                 json_object_get_type(poVal) == json_type_boolean) )
+            else if( json_object_get_type(poVal) == json_type_int ||
+                     json_object_get_type(poVal) == json_type_boolean )
             {
                 poFeature->SetField(i, (GIntBig)json_object_get_int64(poVal));
             }
-            else if( poVal != NULL &&
-                json_object_get_type(poVal) == json_type_double )
+            else if( json_object_get_type(poVal) == json_type_double )
             {
                 poFeature->SetField(i, json_object_get_double(poVal));
             }
@@ -172,8 +171,8 @@ OGRFeature *OGRAmigoCloudLayer::BuildFeature(json_object* poRowObj)
 json_object* OGRAmigoCloudLayer::FetchNewFeatures(GIntBig iNextIn)
 {
     CPLString osSQL = osBaseSQL;
-    if( osSQL.ifind("SELECT") != std::string::npos &&
-        osSQL.ifind(" LIMIT ") == std::string::npos )
+    if (osSQL.ifind("SELECT") != std::string::npos &&
+        osSQL.ifind(" LIMIT ") == std::string::npos)
     {
         osSQL += " LIMIT ";
         osSQL += CPLSPrintf("%d", GetFeaturesToFetch());
@@ -200,7 +199,7 @@ OGRFeature *OGRAmigoCloudLayer::GetNextRawFeature()
             return NULL;
         }
 
-        if( poFeatureDefn == NULL && osBaseSQL.size() == 0 )
+        if( poFeatureDefn == NULL && osBaseSQL.empty() )
         {
             GetLayerDefn();
         }
@@ -244,9 +243,8 @@ OGRFeature *OGRAmigoCloudLayer::GetNextRawFeature()
     OGRFeature* poFeature = BuildFeature(poRowObj);
 
     std::map<GIntBig, OGRAmigoCloudFID>::iterator it = mFIDs.find(poFeature->GetFID());
-    if(it!=mFIDs.end())
+    if (it != mFIDs.end())
     {
-//        iNext = poFeature->GetFID() + 1;
         iNext = it->second.iIndex + 1;
     }
 

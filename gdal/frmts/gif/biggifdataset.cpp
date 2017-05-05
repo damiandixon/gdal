@@ -55,7 +55,7 @@ class BIGGIFDataset : public GIFAbstractDataset
     CPLErr       ReOpen();
 
   protected:
-    virtual int         CloseDependentDatasets();
+    virtual int         CloseDependentDatasets() override;
 
   public:
                  BIGGIFDataset();
@@ -77,7 +77,7 @@ class BIGGifRasterBand : public GIFAbstractRasterBand
   public:
                    BIGGifRasterBand( BIGGIFDataset *, int );
 
-    virtual CPLErr IReadBlock( int, int, void * );
+    virtual CPLErr IReadBlock( int, int, void * ) override;
 };
 
 /************************************************************************/
@@ -158,7 +158,6 @@ CPLErr BIGGifRasterBand::IReadBlock( CPL_UNUSED int nBlockXOff,
 /*                             BIGGIFDataset                            */
 /* ==================================================================== */
 /************************************************************************/
-
 
 /************************************************************************/
 /*                            BIGGIFDataset()                            */
@@ -291,7 +290,6 @@ CPLErr BIGGIFDataset::ReOpen()
 
     return CE_None;
 }
-
 
 /************************************************************************/
 /*                                Open()                                */

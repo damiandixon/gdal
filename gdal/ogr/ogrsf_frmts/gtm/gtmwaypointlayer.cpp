@@ -103,11 +103,7 @@ GTMWaypointLayer::GTMWaypointLayer( const char* pszNameIn,
     poFeatureDefn->AddFieldDefn( &oFieldTime );
 }
 
-GTMWaypointLayer::~GTMWaypointLayer()
-{
-
-}
-
+GTMWaypointLayer::~GTMWaypointLayer() {}
 
 /************************************************************************/
 /*                      WriteFeatureAttributes()                        */
@@ -121,7 +117,7 @@ void GTMWaypointLayer::WriteFeatureAttributes( OGRFeature *poFeature, float alti
     for (int i = 0; i < poFeatureDefn->GetFieldCount(); ++i)
     {
         OGRFieldDefn *poFieldDefn = poFeatureDefn->GetFieldDefn( i );
-        if( poFeature->IsFieldSet( i ) )
+        if( poFeature->IsFieldSetAndNotNull( i ) )
         {
             const char* l_pszName = poFieldDefn->GetNameRef();
             /* Waypoint name */
@@ -247,7 +243,6 @@ OGRErr GTMWaypointLayer::ICreateFeature (OGRFeature *poFeature)
         poGeom->transform( poCT );
     }
 
-
     switch( poGeom->getGeometryType() )
     {
     case wkbPoint:
@@ -281,12 +276,11 @@ OGRErr GTMWaypointLayer::ICreateFeature (OGRFeature *poFeature)
         delete poGeom;
 
     return OGRERR_NONE;
-
 }
 
 OGRFeature* GTMWaypointLayer::GetNextFeature()
 {
-    if (bError)
+    if( bError )
         return NULL;
 
     while (poDS->hasNextWaypoint())
@@ -296,7 +290,7 @@ OGRFeature* GTMWaypointLayer::GetNextFeature()
         {
             CPLError(CE_Failure, CPLE_AppDefined,
                      "Could not read waypoint. File probably corrupted");
-            bError = TRUE;
+            bError = true;
             return NULL;
         }
 

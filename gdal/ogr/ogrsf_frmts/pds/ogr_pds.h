@@ -87,19 +87,18 @@ class OGRPDSLayer : public OGRLayer
                                          GByte* pabyRecord, bool bIsASCII);
                         virtual ~OGRPDSLayer();
 
+    virtual void                ResetReading() override;
+    virtual OGRFeature *        GetNextFeature() override;
 
-    virtual void                ResetReading();
-    virtual OGRFeature *        GetNextFeature();
+    virtual OGRFeatureDefn *    GetLayerDefn() override { return poFeatureDefn; }
 
-    virtual OGRFeatureDefn *    GetLayerDefn() { return poFeatureDefn; }
+    virtual int                 TestCapability( const char * ) override;
 
-    virtual int                 TestCapability( const char * );
+    virtual GIntBig             GetFeatureCount(int bForce = TRUE ) override;
 
-    virtual GIntBig             GetFeatureCount(int bForce = TRUE );
+    virtual OGRFeature         *GetFeature( GIntBig nFID ) override;
 
-    virtual OGRFeature         *GetFeature( GIntBig nFID );
-
-    virtual OGRErr              SetNextByIndex( GIntBig nIndex );
+    virtual OGRErr              SetNextByIndex( GIntBig nIndex ) override;
 };
 
 } /* end of OGRPDS namespace */
@@ -122,9 +121,9 @@ class OGRPDSDataSource : public OGRDataSource
                                        int iSubscript,
                                        const char *pszDefault );
 
-    int                 LoadTable(const char* pszFilename,
-                                  int nRecordSize,
-                                  CPLString osTableID);
+    bool                LoadTable( const char* pszFilename,
+                                   int nRecordSize,
+                                   CPLString osTableID );
 
   public:
                         OGRPDSDataSource();
@@ -132,12 +131,12 @@ class OGRPDSDataSource : public OGRDataSource
 
     int                 Open( const char * pszFilename );
 
-    virtual const char*         GetName() { return pszName; }
+    virtual const char*         GetName() override { return pszName; }
 
-    virtual int                 GetLayerCount() { return nLayers; }
-    virtual OGRLayer*           GetLayer( int );
+    virtual int                 GetLayerCount() override { return nLayers; }
+    virtual OGRLayer*           GetLayer( int ) override;
 
-    virtual int                 TestCapability( const char * );
+    virtual int                 TestCapability( const char * ) override;
 
     static void         CleanString( CPLString &osInput );
 };

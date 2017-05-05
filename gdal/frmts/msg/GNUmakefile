@@ -2,14 +2,14 @@ include ../../GDALmake.opt
 
 OBJ	=	msgdataset.o xritheaderparser.o prologue.o msgcommand.o reflectancecalculator.o PublicDecompWT_all.o
 
-CPPFLAGS	=	 -DDO_NOT_USE_DEBUG_BOOL -I PublicDecompWT/DISE -I PublicDecompWT/COMP/WT/Inc -I PublicDecompWT/COMP/Inc -I.
+CPPFLAGS	:=	 -DDO_NOT_USE_DEBUG_BOOL -I PublicDecompWT/DISE -I PublicDecompWT/COMP/WT/Inc -I PublicDecompWT/COMP/Inc -I. $(CPPFLAGS)
 
 default:	$(OBJ:.o=.$(OBJ_EXT))
 
 clean:
 	rm -f *.o PublicDecompWT_all.h
 
-install-obj:	$(O_OBJ:.o=.$(OBJ_EXT)) 
+install-obj:	$(O_OBJ:.o=.$(OBJ_EXT))
 
 PublicDecompWT_all.cpp: PublicDecompWT_all.h
 

@@ -9,7 +9,6 @@
    Original licence available in port/LICENCE_minizip
 */
 
-
 /* ioapi.c -- IO base function header for compress/uncompress .zip
    files using zlib + zip or unzip API
 
@@ -18,16 +17,23 @@
    Copyright (C) 1998-2005 Gilles Vollant
 */
 
-#include "cpl_vsi.h"
+#include "cpl_port.h"
+#include "cpl_minizip_ioapi.h"
 
+#include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#if HAVE_FCNTL_H
+#include <fcntl.h>
+#endif
 
-#include "zlib.h"
 #include "cpl_minizip_ioapi.h"
+#include "cpl_vsi.h"
+#include "zconf.h"
+#include "zlib.h"
 
-CPL_CVSID("$Id:");
+CPL_CVSID("$Id$");
 
 static
 voidpf ZCALLBACK fopen_file_func ( voidpf /* opaque */ ,
@@ -42,7 +48,11 @@ voidpf ZCALLBACK fopen_file_func ( voidpf /* opaque */ ,
         mode_fopen = "r+b";
     else
     if (mode & ZLIB_FILEFUNC_MODE_CREATE)
+    {
         mode_fopen = "wb";
+        if( filename != NULL )
+            return VSIFOpenExL(filename, mode_fopen, true);
+    }
 
     if ((filename!=NULL) && (mode_fopen != NULL))
         file = VSIFOpenL(filename, mode_fopen);
@@ -53,8 +63,9 @@ static
 uLong ZCALLBACK fread_file_func ( voidpf /* opaque */, voidpf stream,
                                   void* buf, uLong size )
 {
-    uLong ret;
-    ret = (uLong)VSIFReadL(buf, 1, (size_t)size, (VSILFILE *)stream);
+    uLong ret =
+        static_cast<uLong>(VSIFReadL(buf, 1, static_cast<size_t>(size),
+                                     static_cast<VSILFILE *>(stream)));
     return ret;
 }
 
@@ -62,8 +73,9 @@ static
 uLong ZCALLBACK fwrite_file_func ( voidpf /* opaque */, voidpf stream,
                                    const void* buf, uLong size )
 {
-    uLong ret;
-    ret = (uLong)VSIFWriteL(buf, 1, (size_t)size, (VSILFILE *)stream);
+    uLong ret =
+        static_cast<uLong>(VSIFWriteL(buf, 1, static_cast<size_t>(size),
+                                      static_cast<VSILFILE *>(stream)));
     return ret;
 }
 

@@ -129,7 +129,7 @@ OGRWAsPLayer::~OGRWAsPLayer()
 
         std::vector<int> endNeighbors( oBoundaries.size(), -1 );
         std::vector<int> startNeighbors( oBoundaries.size(), -1 );
-        for ( PointMap::const_iterator it = oMap.begin(); it != oMap.end(); it++ )
+        for ( PointMap::const_iterator it = oMap.begin(); it != oMap.end(); ++it )
         {
             if ( it->second.size() != 2 ) continue;
             int i = it->second[0];
@@ -287,7 +287,6 @@ OGRLineString * OGRWAsPLayer::Simplify( const OGRLineString & line ) const
         poLine->StartPoint( &pt );
         newLine->addPoint( &pt );
         const int iNumPoints= poLine->getNumPoints();
-        unsigned rem = 0;
         for (int v=1; v<iNumPoints; v++)
         {
             if ( fabs(poLine->getX(v) - pt.getX()) > dist ||
@@ -295,10 +294,6 @@ OGRLineString * OGRWAsPLayer::Simplify( const OGRLineString & line ) const
             {
                 poLine->getPoint( v, &pt );
                 newLine->addPoint( &pt );
-            }
-            else
-            {
-                ++rem;
             }
         }
 
@@ -363,7 +358,6 @@ OGRLineString * OGRWAsPLayer::Simplify( const OGRLineString & line ) const
                         cy + radius*sin((v%nbPt)*(2*M_PI/nbPt)) );
             }
         }
-
     }
 
     return poLine.release();
@@ -423,11 +417,9 @@ OGRErr OGRWAsPLayer::WriteElevation( OGRGeometry * poGeom, const double & dfZ )
     return OGRERR_FAILURE; /* avoid visual warning */
 }
 
-
 /************************************************************************/
 /*                            WriteRoughness()                          */
 /************************************************************************/
-
 
 OGRErr OGRWAsPLayer::WriteRoughness( OGRPolygon * poGeom, const double & dfZ )
 
@@ -642,11 +634,10 @@ OGRErr OGRWAsPLayer::ICreateFeature( OGRFeature * poFeature )
                          || (geomType == wkbMultiPolygon25D);
     const bool bRoughness = (-1 != iSecondFieldIdx) || bPolygon ;
 
-
     double z1 = 0.0;
     if ( -1 != iFirstFieldIdx )
     {
-        if (!poFeature->IsFieldSet(iFirstFieldIdx))
+        if (!poFeature->IsFieldSetAndNotNull(iFirstFieldIdx))
         {
             CPLError(CE_Failure, CPLE_NotSupported, "Field %d %s is NULL", iFirstFieldIdx, sFirstField.c_str() );
             return OGRERR_FAILURE;
@@ -669,7 +660,7 @@ OGRErr OGRWAsPLayer::ICreateFeature( OGRFeature * poFeature )
     double z2 = 0.0;
     if ( -1 != iSecondFieldIdx )
     {
-        if (!poFeature->IsFieldSet(iSecondFieldIdx))
+        if (!poFeature->IsFieldSetAndNotNull(iSecondFieldIdx))
         {
             CPLError(CE_Failure, CPLE_NotSupported, "Field %d %s is NULL", iSecondFieldIdx, sSecondField.c_str() );
             return OGRERR_FAILURE;
@@ -722,7 +713,6 @@ OGRErr OGRWAsPLayer::CreateGeomField( OGRGeomFieldDefn *poGeomFieldIn,
 
     return OGRERR_NONE;
 }
-
 
 /************************************************************************/
 /*                           GetNextFeature()                           */
@@ -839,7 +829,6 @@ void OGRWAsPLayer::ResetReading()
     VSIFSeekL( hFile, iOffsetFeatureBegin, SEEK_SET );
 }
 
-
 /************************************************************************/
 /*                           AvgZ()                                     */
 /************************************************************************/
@@ -891,8 +880,6 @@ double OGRWAsPLayer::AvgZ( OGRGeometry * poGeom )
     }
     return 0; /* avoid warning */
 }
-
-
 
 /************************************************************************/
 /*                           DouglasPeucker()                           */

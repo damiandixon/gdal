@@ -26,7 +26,6 @@
  * DEALINGS IN THE SOFTWARE.
  ****************************************************************************/
 
-
 #include "ogr_ingres.h"
 
 #include "cpl_conv.h"
@@ -70,7 +69,7 @@ SetConnParam(II_PTR *connHandle,
         *connHandle = setconnParm.sc_connHandle;
     }
 
-    return (setconnParm.sc_genParm.gp_status);
+    return setconnParm.sc_genParm.gp_status;
 }
 
 /************************************************************************/
@@ -89,6 +88,8 @@ OGRIngresDataSource::OGRIngresDataSource()
     panSRID = NULL;
     papoSRS = NULL;
     poActiveLayer = NULL;
+    bDSUpdate = FALSE;
+    bNewIngres = FALSE;
 }
 
 /************************************************************************/
@@ -127,7 +128,6 @@ OGRIngresDataSource::~OGRIngresDataSource()
 
 int OGRIngresDataSource::Open( const char *pszFullName,
                                char **papszOptions, int bUpdate )
-
 
 {
     CPLAssert( nLayers == 0 );
@@ -398,7 +398,6 @@ OGRLayer *OGRIngresDataSource::GetLayer( int iLayer )
         return papoLayers[iLayer];
 }
 
-
 /************************************************************************/
 /*                      InitializeMetadataTables()                      */
 /*                                                                      */
@@ -545,8 +544,6 @@ OGRSpatialReference *OGRIngresDataSource::FetchSRS( int nId )
     return poSRS;
 }
 
-
-
 /************************************************************************/
 /*                             FetchSRSId()                             */
 /*                                                                      */
@@ -577,7 +574,6 @@ int OGRIngresDataSource::FetchSRSId( OGRSpatialReference * poSRS )
          sprintf( szCommand,
              "SELECT srid FROM spatial_ref_sys WHERE auth_name = 'EPSG' and auth_srid= %s",
              pszAuthID );
-
 
         OGRIngresStatement  oStateSRID(GetConn());
         oStateSRID.ExecuteSQL(szCommand);
@@ -658,7 +654,6 @@ int OGRIngresDataSource::FetchSRSId( OGRSpatialReference * poSRS )
             {
                 nSRSId = *((II_INT4 *)papszRow[0]) + 1;
             }
-
         }
         else
             nSRSId = USER_DEFINED_SR_START+1;
@@ -834,8 +829,6 @@ int OGRIngresDataSource::DeleteLayer( int iLayer)
         return OGRERR_FAILURE;
 }
 
-
-
 /************************************************************************/
 /*                           ICreateLayer()                             */
 /************************************************************************/
@@ -847,7 +840,7 @@ OGRIngresDataSource::ICreateLayer( const char * pszLayerNameIn,
                                    char ** papszOptions )
 
 {
-    int                 nDimension = 3; // Ingres only supports 2d currently
+    //int                 nDimension = 3; // Ingres only supports 2d currently
 
     char *pszLayerName = NULL;
     if( CPLFetchBool(papszOptions, "LAUNDER", true) )
@@ -855,8 +848,8 @@ OGRIngresDataSource::ICreateLayer( const char * pszLayerNameIn,
     else
         pszLayerName = CPLStrdup( pszLayerNameIn );
 
-    if( wkbFlatten(eType) == eType )
-        nDimension = 2;
+    //if( wkbFlatten(eType) == eType )
+    //    nDimension = 2;
 
     CPLDebug("INGRES","Creating layer %s.", pszLayerName);
 

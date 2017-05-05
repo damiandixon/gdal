@@ -76,7 +76,7 @@ OGRPGResultLayer::OGRPGResultLayer( OGRPGDataSource *poDSIn,
         int tableCol = PQftablecol(hInitialResultIn, iRawField);
         if( tableOID != InvalidOid && tableCol > 0 )
         {
-            if( osRequest.size() )
+            if( !osRequest.empty() )
                 osRequest += " OR ";
             osRequest += "(attrelid = ";
             osRequest += CPLSPrintf("%d", tableOID);
@@ -86,7 +86,7 @@ OGRPGResultLayer::OGRPGResultLayer( OGRPGDataSource *poDSIn,
         }
     }
 
-    if( osRequest.size() )
+    if( !osRequest.empty() )
     {
         osRequest = "SELECT attnum, attrelid FROM pg_attribute WHERE attnotnull = 't' AND (" + osRequest + ")";
         PGresult* hResult = OGRPG_PQexec(poDS->GetPGConn(), osRequest );
@@ -113,7 +113,6 @@ OGRPGResultLayer::OGRPGResultLayer( OGRPGDataSource *poDSIn,
         OGRPGClearResult( hResult );
     }
 
-#ifndef PG_PRE74
     /* Determine the table from which the geometry column is extracted */
     if (iGeomCol != -1)
     {
@@ -135,7 +134,6 @@ OGRPGResultLayer::OGRPGResultLayer( OGRPGDataSource *poDSIn,
             OGRPGClearResult( hTableNameResult );
         }
     }
-#endif
 }
 
 /************************************************************************/
@@ -150,7 +148,6 @@ OGRPGResultLayer::~OGRPGResultLayer()
     CPLFree( pszGeomTableSchemaName );
 }
 
-
 /************************************************************************/
 /*                      BuildFullQueryStatement()                       */
 /************************************************************************/
@@ -164,10 +161,10 @@ void OGRPGResultLayer::BuildFullQueryStatement()
         pszQueryStatement = NULL;
     }
 
-    const size_t nLen = strlen(pszRawStatement) + strlen(osWHERE) + 40;
+    const size_t nLen = strlen(pszRawStatement) + osWHERE.size() + 40;
     pszQueryStatement = (char*) CPLMalloc(nLen);
 
-    if (strlen(osWHERE) == 0)
+    if (osWHERE.empty())
         strcpy(pszQueryStatement, pszRawStatement);
     else
         snprintf(pszQueryStatement, nLen, "SELECT * FROM (%s) AS ogrpgsubquery %s",
@@ -212,7 +209,6 @@ GIntBig OGRPGResultLayer::GetFeatureCount( int bForce )
 
     return nCount;
 }
-
 
 /************************************************************************/
 /*                           TestCapability()                           */
@@ -261,7 +257,6 @@ int OGRPGResultLayer::TestCapability( const char * pszCap )
     else
         return FALSE;
 }
-
 
 /************************************************************************/
 /*                           GetNextFeature()                           */
@@ -354,7 +349,6 @@ void OGRPGResultLayer::SetSpatialFilter( int iGeomField, OGRGeometry * poGeomIn 
 
         ResetReading();
     }
-
 }
 
 /************************************************************************/

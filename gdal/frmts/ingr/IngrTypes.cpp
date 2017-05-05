@@ -637,7 +637,6 @@ void CPL_STDCALL INGR_GetEnvironVColors( VSILFILE *fp,
 
     CPLFree( pabyBuf );
 
-
 #if defined(CPL_MSB)
     for ( unsigned int i = 0; i < nEntries; i++)
     {
@@ -1178,8 +1177,7 @@ INGR_DecodeRunLengthBitonal( GByte *pabySrcData, GByte *pabyDstData,
             bHeader = false;
 
         // Fall through. We have a valid scanline header... probably.
-
-    } while(0);
+    } while( false );
 
     if( bHeader )
         iInput+=4; // 0x5900 tag, line id, line data size, skip offset
@@ -1225,7 +1223,6 @@ INGR_DecodeRunLengthBitonal( GByte *pabySrcData, GByte *pabyDstData,
             iInput--;
     }
 
-
     if( pnBytesConsumed != NULL )
         *pnBytesConsumed = iInput * 2;
 
@@ -1255,7 +1252,6 @@ INGR_DecodeRunLengthBitonalTiled( GByte *pabySrcData, GByte *pabyDstData,
     unsigned short nRun = 0;
     unsigned char  nValue = 0;
     unsigned short previous = 0;
-
 
     if( CPL_LSBWORD16(pauiSrc[0]) != 0x5900 )
     {

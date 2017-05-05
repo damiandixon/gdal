@@ -2464,7 +2464,7 @@ def ogr_csv_48():
     data = gdal.VSIFReadL(1, 10000, f).decode('ascii')
     gdal.VSIFCloseL(f)
 
-    if data.find('stringlist,intlist,int64list,reallist\n"[ ""a"", """" ]",[ 1 ],[ 1234567890123 ],[ 0.125000 ]') != 0:
+    if data.find('stringlist,intlist,int64list,reallist\n"[ ""a"", """" ]",[ 1 ],[ 1234567890123 ],[ 0.125') != 0:
         gdaltest.post_reason('fail')
         print(data)
         return 'fail'
@@ -2482,6 +2482,28 @@ def ogr_csv_48():
     gdal.Unlink('/vsimem/ogr_csv_48.csvt')
     gdal.Unlink('/vsimem/ogr_csv_48_out.csv')
     gdal.Unlink('/vsimem/ogr_csv_48_out.csvt')
+
+    return 'success'
+
+###############################################################################
+# Test EMPTY_STRING_AS_NULL=ES
+
+def ogr_csv_49():
+    gdal.FileFromMemBuffer('/vsimem/ogr_csv_49.csv',
+"""id,str
+1,
+""")
+
+    ds = gdal.OpenEx('/vsimem/ogr_csv_49.csv', open_options = ['EMPTY_STRING_AS_NULL=YES'])
+    lyr = ds.GetLayer(0)
+    f = lyr.GetNextFeature()
+    if not f.IsFieldNull('str'):
+        gdaltest.post_reason('fail')
+        f.DumpReadable()
+        return 'fail'
+    ds = None
+
+    gdal.Unlink('/vsimem/ogr_csv_49.csv')
 
     return 'success'
 
@@ -2568,6 +2590,7 @@ gdaltest_list = [
     ogr_csv_46,
     ogr_csv_47,
     ogr_csv_48,
+    ogr_csv_49,
     ogr_csv_cleanup ]
 
 if __name__ == '__main__':

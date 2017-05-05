@@ -70,7 +70,7 @@ class CPL_DLL OGR_SRSNode
     OGRErr      importFromWkt( char **, int nRecLevel, int* pnNodes );
 
   public:
-                OGR_SRSNode(const char * = NULL);
+    explicit     OGR_SRSNode(const char * = NULL);
                 ~OGR_SRSNode();
 
     /** Return whether this is a leaf node.
@@ -154,7 +154,7 @@ class CPL_DLL OGRSpatialReference
                                   const char* pszURN);
   public:
                 OGRSpatialReference(const OGRSpatialReference&);
-                OGRSpatialReference(const char * = NULL);
+    explicit    OGRSpatialReference(const char * = NULL);
 
     virtual    ~OGRSpatialReference();
 
@@ -603,6 +603,12 @@ public:
     /** Fetch internal target coordinate system. */
     virtual OGRSpatialReference *GetTargetCS() = 0;
 
+    /** Whether the transformer will emit CPLError */
+    virtual bool GetEmitErrors() { return false; }
+
+    /** Set if the transformer must emit CPLError */
+    virtual void SetEmitErrors(bool /*bEmitErrors*/) {}
+
     // From CT_MathTransform
 
     /**
@@ -641,7 +647,6 @@ public:
     virtual int TransformEx( int nCount,
                              double *x, double *y, double *z = NULL,
                              int *pabSuccess = NULL ) = 0;
-
 };
 
 OGRCoordinateTransformation CPL_DLL *

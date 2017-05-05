@@ -27,11 +27,28 @@
  * DEALINGS IN THE SOFTWARE.
  ****************************************************************************/
 
+#include "cpl_port.h"
+#include "gdal_vrt.h"
+#include "vrtdataset.h"
+
+#include <cmath>
+#include <cstddef>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <string>
+
+#include "cpl_conv.h"
+#include "cpl_error.h"
+#include "cpl_hash_set.h"
 #include "cpl_minixml.h"
+#include "cpl_progress.h"
 #include "cpl_string.h"
+#include "cpl_vsi.h"
+#include "gdal.h"
+#include "gdal_priv.h"
 #include "ogr_geometry.h"
 
-#include "vrtdataset.h"
 CPL_CVSID("$Id$");
 
 /*! @cond Doxygen_Suppress */
@@ -449,7 +466,6 @@ CPLErr VRTSourcedRasterBand::IReadBlock( int nBlockXOff, int nBlockYOff,
                       pImage, nReadXSize, nReadYSize, eDataType,
                       nPixelSize, nPixelSize * nBlockXSize, &sExtraArg );
 }
-
 
 /************************************************************************/
 /*                    CanUseSourcesMinMaxImplementations()              */
@@ -1328,7 +1344,6 @@ char **VRTSourcedRasterBand::GetMetadataDomainList()
                       "LocationInfo" );
 }
 
-
 /************************************************************************/
 /*                          GetMetadataItem()                           */
 /************************************************************************/
@@ -1399,7 +1414,8 @@ const char *VRTSourcedRasterBand::GetMetadataItem( const char * pszName,
 /*      Find the file(s) at this location.                              */
 /* -------------------------------------------------------------------- */
         char **papszFileList = NULL;
-        int nListSize = 0;
+        int nListSize = 0; // keep it in this scope
+        int nListMaxSize = 0; // keep it in this scope
         CPLHashSet * const hSetFiles = CPLHashSetNew( CPLHashSetHashStr,
                                                       CPLHashSetEqualStr,
                                                       NULL );
@@ -1434,7 +1450,6 @@ const char *VRTSourcedRasterBand::GetMetadataItem( const char * pszName,
                                          &nOutXSize, &nOutYSize ) )
                 continue;
 
-            int nListMaxSize = 0;
             poSrc->GetFileList( &papszFileList, &nListSize, &nListMaxSize,
                                 hSetFiles );
         }

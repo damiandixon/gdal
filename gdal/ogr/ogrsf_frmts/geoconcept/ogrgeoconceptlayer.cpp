@@ -384,7 +384,7 @@ OGRErr OGRGeoconceptLayer::ICreateFeature( OGRFeature* poFeature )
                   nextField = WriteFeatureFieldAsString_GCIO(
                       _gcFeature,
                       nextField,
-                      poFeature->IsFieldSet(iF)?
+                      poFeature->IsFieldSetAndNotNull(iF)?
                       poFeature->GetFieldAsString(iF) : NULL);
                   break;
                 }
@@ -508,7 +508,6 @@ OGRErr OGRGeoconceptLayer::CreateField( OGRFieldDefn *poField,
         CPLError( CE_Failure, CPLE_NotSupported,
                   "Can't create fields on a read-only Geoconcept layer.\n");
         return OGRERR_FAILURE;
-
     }
 
 /* -------------------------------------------------------------------- */

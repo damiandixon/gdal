@@ -41,7 +41,7 @@ CPL_CVSID("$Id$");
 
   \param pszName property name
   \param pszType property type (original, string)
-  \param bLatin2 TRUE for "ISO-8859-2" otherwise "WINDOWS-1250" is used (only for "text" type)
+  \param bLatin2 true for "ISO-8859-2" otherwise "WINDOWS-1250" is used (only for "text" type)
 */
 VFKPropertyDefn::VFKPropertyDefn( const char *pszName, const char *pszType,
                                   bool bLatin2 ) :
@@ -74,7 +74,7 @@ VFKPropertyDefn::VFKPropertyDefn( const char *pszName, const char *pszType,
             if (m_nWidth < 10)
                 m_eFType = OFTInteger;
             else {
-                m_eFType  = OFTString;
+                m_eFType = OFTInteger64;
             }
         }
     }
@@ -117,13 +117,12 @@ CPLString VFKPropertyDefn::GetTypeSQL() const
     switch(m_eFType) {
     case OFTInteger:
         return CPLString("integer");
+    case OFTInteger64:
+        return CPLString("bigint");
     case OFTReal:
         return CPLString("real");
     case OFTString:
-        if (m_pszType[0] == 'N')
-            return CPLString("integer");
-        else
-            return CPLString("text");
+        return CPLString("text");
     default:
         return CPLString("text");
     }

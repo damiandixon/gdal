@@ -38,7 +38,6 @@
 
 CPL_CVSID("$Id$");
 
-
 /**
 
 Erdas Header format: "HEAD74"
@@ -117,12 +116,12 @@ class LAN4BitRasterBand : public GDALPamRasterBand
                    LAN4BitRasterBand( LANDataset *, int );
     virtual ~LAN4BitRasterBand();
 
-    virtual GDALColorTable *GetColorTable();
-    virtual GDALColorInterp GetColorInterpretation();
-    virtual CPLErr SetColorTable( GDALColorTable * );
-    virtual CPLErr SetColorInterpretation( GDALColorInterp );
+    virtual GDALColorTable *GetColorTable() override;
+    virtual GDALColorInterp GetColorInterpretation() override;
+    virtual CPLErr SetColorTable( GDALColorTable * ) override;
+    virtual CPLErr SetColorInterpretation( GDALColorInterp ) override;
 
-    virtual CPLErr IReadBlock( int, int, void * );
+    virtual CPLErr IReadBlock( int, int, void * ) override;
 };
 
 /************************************************************************/
@@ -145,16 +144,16 @@ class LANDataset : public RawDataset
     CPLString   osSTAFilename;
     void        CheckForStatistics(void);
 
-    virtual char **GetFileList();
+    virtual char **GetFileList() override;
 
   public:
                 LANDataset();
     virtual ~LANDataset();
 
-    virtual CPLErr GetGeoTransform( double * padfTransform );
-    virtual CPLErr SetGeoTransform( double * padfTransform );
-    virtual const char *GetProjectionRef();
-    virtual CPLErr SetProjection( const char * );
+    virtual CPLErr GetGeoTransform( double * padfTransform ) override;
+    virtual CPLErr SetGeoTransform( double * padfTransform ) override;
+    virtual const char *GetProjectionRef() override;
+    virtual CPLErr SetProjection( const char * ) override;
 
     static GDALDataset *Open( GDALOpenInfo * );
     static GDALDataset *Create( const char * pszFilename,
@@ -180,7 +179,7 @@ LAN4BitRasterBand::LAN4BitRasterBand( LANDataset *poDSIn, int nBandIn ) :
     nBand = nBandIn;
     eDataType = GDT_Byte;
 
-    nBlockXSize = poDSIn->GetRasterXSize();;
+    nBlockXSize = poDSIn->GetRasterXSize();
     nBlockYSize = 1;
 }
 
@@ -809,7 +808,7 @@ char **LANDataset::GetFileList()
     // Main data file, etc.
     char **papszFileList = GDALPamDataset::GetFileList();
 
-    if( strlen(osSTAFilename) > 0 )
+    if( !osSTAFilename.empty() )
         papszFileList = CSLAddString( papszFileList, osSTAFilename );
 
     return papszFileList;

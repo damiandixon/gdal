@@ -37,7 +37,7 @@ CPL_CVSID("$Id$");
 
 OGRDWGBlocksLayer::OGRDWGBlocksLayer( OGRDWGDataSource *poDSIn ) :
     poDS(poDSIn),
-    poFeatureDefn(new OGRFeatureDefn( "blocks" )),
+    poFeatureDefn(new OGRFeatureDefn( "blocks" ))
 {
     ResetReading();
 
@@ -95,14 +95,15 @@ OGRFeature *OGRDWGBlocksLayer::GetNextUnfilteredFeature()
 /*      Are we done reading the current blocks features?                */
 /* -------------------------------------------------------------------- */
     DWGBlockDefinition *psBlock = &(oIt->second);
-    unsigned int nSubFeatureCount = psBlock->apoFeatures.size();
+    unsigned int nSubFeatureCount = static_cast<unsigned int>(
+        psBlock->apoFeatures.size());
 
     if( psBlock->poGeometry != NULL )
         nSubFeatureCount++;
 
     if( iNextSubFeature >= nSubFeatureCount )
     {
-        oIt++;
+        ++oIt;
 
         iNextSubFeature = 0;
 

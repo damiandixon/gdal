@@ -171,8 +171,10 @@ OGRFeature *OGRMySQLLayer::RecordToFeature( char **papszRow,
 
         if( papszRow[iField] == NULL )
         {
-//            CPLDebug("MYSQL", "%s was null for %d", psMSField->name,
-//                     iNextShapeId);
+            const int iOGRField = poFeatureDefn->GetFieldIndex(psMSField->name);
+            if( iOGRField >= 0 )
+                poFeature->SetFieldNull( iOGRField );
+
             continue;
         }
 
@@ -197,7 +199,6 @@ OGRFeature *OGRMySQLLayer::RecordToFeature( char **papszRow,
             }
             continue;
         }
-
 
 /* -------------------------------------------------------------------- */
 /*      Transfer regular data fields.                                   */
@@ -315,7 +316,6 @@ const char *OGRMySQLLayer::GetGeometryColumn()
         return "";
 }
 
-
 /************************************************************************/
 /*                         FetchSRSId()                                 */
 /************************************************************************/
@@ -361,8 +361,6 @@ int OGRMySQLLayer::FetchSRSId()
 OGRSpatialReference *OGRMySQLLayer::GetSpatialRef()
 
 {
-
-
     if( poSRS == NULL && nSRSId > -1 )
     {
         poSRS = poDS->FetchSRS( nSRSId );
@@ -373,5 +371,4 @@ OGRSpatialReference *OGRMySQLLayer::GetSpatialRef()
     }
 
     return poSRS;
-
 }

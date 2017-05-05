@@ -74,9 +74,14 @@ int CPL_DLL CPL_STDCALL GDALGetDataTypeSize( GDALDataType );  // Deprecated.
 int CPL_DLL CPL_STDCALL GDALGetDataTypeSizeBits( GDALDataType eDataType );
 int CPL_DLL CPL_STDCALL GDALGetDataTypeSizeBytes( GDALDataType );
 int CPL_DLL CPL_STDCALL GDALDataTypeIsComplex( GDALDataType );
+int CPL_DLL CPL_STDCALL GDALDataTypeIsFloating( GDALDataType );
+int CPL_DLL CPL_STDCALL GDALDataTypeIsSigned( GDALDataType );
 const char CPL_DLL * CPL_STDCALL GDALGetDataTypeName( GDALDataType );
 GDALDataType CPL_DLL CPL_STDCALL GDALGetDataTypeByName( const char * );
 GDALDataType CPL_DLL CPL_STDCALL GDALDataTypeUnion( GDALDataType, GDALDataType );
+GDALDataType CPL_DLL CPL_STDCALL GDALDataTypeUnionWithValue( GDALDataType eDT, double dValue, int bComplex );
+GDALDataType CPL_DLL CPL_STDCALL GDALFindDataType( int nBits, int bSigned, int bFloating, int bComplex );
+GDALDataType CPL_DLL CPL_STDCALL GDALFindDataTypeForValue( double dValue, int bComplex );
 double CPL_DLL GDALAdjustValueToDataType( GDALDataType eDT, double dfValue, int* pbClamped, int* pbRounded );
 GDALDataType CPL_STDCALL GDALGetNonComplexDataType( GDALDataType );
 
@@ -357,10 +362,14 @@ GDALCreateCopy( GDALDriverH, const char *, GDALDatasetH,
 
 GDALDriverH CPL_DLL CPL_STDCALL GDALIdentifyDriver( const char * pszFilename,
                                             char ** papszFileList );
+
+GDALDriverH CPL_DLL CPL_STDCALL GDALIdentifyDriverEx(
+    const char *pszFilename, unsigned int nIdentifyFlags,
+    const char *const *papszAllowedDrivers, const char *const *papszFileList);
+
 GDALDatasetH CPL_DLL CPL_STDCALL
 GDALOpen( const char *pszFilename, GDALAccess eAccess ) CPL_WARN_UNUSED_RESULT;
 GDALDatasetH CPL_DLL CPL_STDCALL GDALOpenShared( const char *, GDALAccess ) CPL_WARN_UNUSED_RESULT;
-
 
 /* Note: we define GDAL_OF_READONLY and GDAL_OF_UPDATE to be on purpose */
 /* equals to GA_ReadOnly and GA_Update */
@@ -394,7 +403,6 @@ GDALDatasetH CPL_DLL CPL_STDCALL GDALOpenShared( const char *, GDALAccess ) CPL_
  * @since GDAL 2.0
  */
 #define     GDAL_OF_VECTOR          0x04
-
 
 /** Allow gnm drivers to be used.
  * Used by GDALOpenEx().
@@ -626,6 +634,7 @@ CPLErr CPL_DLL CPL_STDCALL GDALSetGCPs( GDALDatasetH, int, const GDAL_GCP *,
 void CPL_DLL * CPL_STDCALL GDALGetInternalHandle( GDALDatasetH, const char * );
 int CPL_DLL CPL_STDCALL GDALReferenceDataset( GDALDatasetH );
 int CPL_DLL CPL_STDCALL GDALDereferenceDataset( GDALDatasetH );
+int CPL_DLL CPL_STDCALL GDALReleaseDataset( GDALDatasetH );
 
 CPLErr CPL_DLL CPL_STDCALL
 GDALBuildOverviews( GDALDatasetH, const char *, int, int *,
@@ -661,6 +670,12 @@ OGRLayerH CPL_DLL GDALDatasetCreateLayer( GDALDatasetH, const char *,
                                       char ** );
 OGRLayerH CPL_DLL GDALDatasetCopyLayer( GDALDatasetH, OGRLayerH, const char *,
                                         char ** );
+void CPL_DLL GDALDatasetResetReading( GDALDatasetH );
+OGRFeatureH CPL_DLL GDALDatasetGetNextFeature( GDALDatasetH hDS,
+                                               OGRLayerH* phBelongingLayer,
+                                               double* pdfProgressPct,
+                                               GDALProgressFunc pfnProgress,
+                                               void* pProgressData );
 int    CPL_DLL GDALDatasetTestCapability( GDALDatasetH, const char * );
 OGRLayerH CPL_DLL GDALDatasetExecuteSQL( GDALDatasetH, const char *,
                                      OGRGeometryH, const char * );
@@ -671,7 +686,6 @@ void   CPL_DLL GDALDatasetSetStyleTable( GDALDatasetH, OGRStyleTableH );
 OGRErr CPL_DLL GDALDatasetStartTransaction(GDALDatasetH hDS, int bForce);
 OGRErr CPL_DLL GDALDatasetCommitTransaction(GDALDatasetH hDS);
 OGRErr CPL_DLL GDALDatasetRollbackTransaction(GDALDatasetH hDS);
-
 
 /* ==================================================================== */
 /*      GDALRasterBand ... one band/channel in a dataset.               */
@@ -954,29 +968,29 @@ int CPL_DLL CPL_STDCALL GDALCheckVersion( int nVersionMajor, int nVersionMinor,
 
 /** Strucutre to store Rational Polynomial Coefficients / Rigorous Projection
  * Model. See http://geotiff.maptools.org/rpc_prop.html */
-typedef struct {
-    /*! Line offset */         double      dfLINE_OFF;
-    /*! Sample/Pixel offset */ double      dfSAMP_OFF;
-    /*! Latitude offset */     double      dfLAT_OFF;
-    /*! Longitude offset */    double      dfLONG_OFF;
-    /*! Height offset */       double      dfHEIGHT_OFF;
+typedef struct
+{
+    double dfLINE_OFF;   /*!< Line offset */
+    double dfSAMP_OFF;   /*!< Sample/Pixel offset */
+    double dfLAT_OFF;    /*!< Latitude offset */
+    double dfLONG_OFF;   /*!< Longitude offset */
+    double dfHEIGHT_OFF; /*!< Height offset */
 
-     /*! Line scale */         double      dfLINE_SCALE;
-    /*! Sample/Pixel scale */  double      dfSAMP_SCALE;
-    /*! Latitude scale */      double      dfLAT_SCALE;
-    /*! Longitude scale */     double      dfLONG_SCALE;
-    /*! Height scale */        double      dfHEIGHT_SCALE;
+    double dfLINE_SCALE;   /*!< Line scale */
+    double dfSAMP_SCALE;   /*!< Sample/Pixel scale */
+    double dfLAT_SCALE;    /*!< Latitude scale */
+    double dfLONG_SCALE;   /*!< Longitude scale */
+    double dfHEIGHT_SCALE; /*!< Height scale */
 
-     /*! Line Numerator Coefficients */          double  adfLINE_NUM_COEFF[20];
-    /*! Line Denominator Coefficients */         double  adfLINE_DEN_COEFF[20];
-    /*! Sample/Pixel Numerator Coefficients */   double  adfSAMP_NUM_COEFF[20];
-    /*! Sample/Pixel Denominator Coefficients */ double  adfSAMP_DEN_COEFF[20];
+    double adfLINE_NUM_COEFF[20]; /*!< Line Numerator Coefficients */
+    double adfLINE_DEN_COEFF[20]; /*!< Line Denominator Coefficients */
+    double adfSAMP_NUM_COEFF[20]; /*!< Sample/Pixel Numerator Coefficients */
+    double adfSAMP_DEN_COEFF[20]; /*!< Sample/Pixel Denominator Coefficients */
 
-    /*! Minimum longitude */   double      dfMIN_LONG;
-    /*! Minimum latitude */    double      dfMIN_LAT;
-    /*! Maximum longitude */   double      dfMAX_LONG;
-    /*! Maximum latitude */    double      dfMAX_LAT;
-
+    double dfMIN_LONG; /*!< Minimum longitude */
+    double dfMIN_LAT;  /*!< Minimum latitude */
+    double dfMAX_LONG; /*!< Maximum longitude */
+    double dfMAX_LAT;  /*!< Maximum latitude */
 } GDALRPCInfo;
 
 int CPL_DLL CPL_STDCALL GDALExtractRPCInfo( char **, GDALRPCInfo * );
@@ -1111,7 +1125,6 @@ void CPL_DLL* CPL_STDCALL
     GDALRATSerializeJSON( GDALRasterAttributeTableH ) CPL_WARN_UNUSED_RESULT;
 
 int CPL_DLL CPL_STDCALL GDALRATGetRowOfValue( GDALRasterAttributeTableH, double );
-
 
 /* ==================================================================== */
 /*      GDAL Cache Management                                           */
